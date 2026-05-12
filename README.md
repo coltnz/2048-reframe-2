@@ -2,6 +2,8 @@
 
 A 2048 sliding-tile puzzle built on **re-frame2** (alpha) + **Reagent**.
 
+<img width="598" height="743" alt="image" src="https://github.com/user-attachments/assets/e4b4b992-18a4-49c3-a2a2-4043a2eb55b6" />
+
 ## Prerequisites
 
 - **Node** 18+ (we test on 20).
