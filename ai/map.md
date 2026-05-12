@@ -4,8 +4,8 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 4 (1 in_progress spec; 3 v1+ deferred). Audit bead `reframe-2048-76o` closed.
-- **In-flight dispatches:** 0 of 2 (concurrency cap: 2; see CLAUDE.md rule 5).
+- **Open beads:** 5 (1 in_progress spec; 1 impl-scaffold dispatched; 3 v1+ deferred).
+- **In-flight dispatches:** 1 of 2 (concurrency cap: 2; see CLAUDE.md rule 5).
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
 - **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.3 — dispatch-ready**. D-01..D-05 folded from v0.2 audit; D-06..D-09 + 10 NITs deferred per operator no-pedantry redirect.
@@ -14,7 +14,10 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 ## Open beads by category
 
 ### Spec authoring
-- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in; v0.2 audit returned 1 blocker + 4 cheap fixes for v0.3.
+- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At **v0.3 (dispatch-ready)**.
+
+### Implementation
+- `reframe-2048-aja` (P1, open) — **impl-scaffold**: shadow-cljs + re-frame2 + Reagent boot. **Dispatched** to general-purpose agent in worktree. First isolated trial run for usage-impact measurement (operator request, 2026-05-12).
 
 ### v1+ deferred (filed against spec non-goals)
 - `reframe-2048-o8f` (P3, open) — Touch / swipe input (NG7). Spec amendment required.
@@ -23,7 +26,9 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## In-flight dispatches
 
-_None — v0.2 audit returned. Awaiting operator nod before v0.3 pass._
+- `reframe-2048-aja` — impl-scaffold. Background agent, isolated git worktree. Brief: scaffold shadow-cljs + re-frame2 + Reagent + CI; placeholder view only; PR against main. Mayor will not touch build files (`shadow-cljs.edn`, `deps.edn`, `package.json`, `.github/workflows/`, `src/`, `public/`) while this runs.
+
+**Baseline for usage comparison (operator request):** v0.2 audit agent used 55,511 tokens / 209s for a read-only audit. Scaffold is write-heavy and will run higher — exact figures to be recorded on return.
 
 ## Recent decisions
 
