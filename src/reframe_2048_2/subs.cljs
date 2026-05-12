@@ -90,3 +90,27 @@
   (fn [db _]
     (let [{:keys [slides merges spawns]} (get-in db [:ui :animation])]
       (boolean (or (seq slides) (seq merges) (seq spawns))))))
+
+;; -- View-only animation surface --------------------------------------------
+;;
+;; The board view needs the spawn / merge id-sets so it can decorate the
+;; right tile vnodes with `tile--spawn` / `tile--merge` classes. Exposing
+;; them as their own subs (rather than reading :ui.animation directly in
+;; the view) keeps views off raw app-db per re-frame2 Principle 'Public
+;; Query Surfaces'. Not in spec §4.6's named-sub list, but a sub-sub
+;; helper view layer per §4.6 'sub-subs derived from these'.
+
+(rf/reg-sub :sub/anim-spawns
+  {:doc "Vector of {:tile-id} entries currently in the spawn queue
+         (§5.1 :ui.animation.spawns)."}
+  (fn [db _] (get-in db [:ui :animation :spawns])))
+
+(rf/reg-sub :sub/anim-merges
+  {:doc "Vector of {:tile-id :from-ids} entries currently in the merge
+         queue (§5.1 :ui.animation.merges)."}
+  (fn [db _] (get-in db [:ui :animation :merges])))
+
+(rf/reg-sub :sub/anim-slides
+  {:doc "Vector of {:tile-id :from :to} entries currently in the slide
+         queue (§5.1 :ui.animation.slides)."}
+  (fn [db _] (get-in db [:ui :animation :slides])))

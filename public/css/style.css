@@ -1,0 +1,344 @@
+/* ---------------------------------------------------------------------------
+   2048-reframe-2 — canonical palette + layout + animations.
+
+   bead reframe-2048-4ix (impl-views).
+
+   Every hex code in §8.2 is reproduced VERBATIM below; no aliasing through
+   intermediate variables that would obscure the spec→stylesheet mapping.
+
+   Chrome (§8.2 'Chrome' table):
+     - Page background : #faf8ef
+     - Game container  : #bbada0
+     - Empty cell      : rgba(238, 228, 218, 0.35) over the container.
+
+   Tile values (§8.2 'Tiles' table) — verbatim hex pairs of (background, text):
+       2   : #eee4da / #776e65
+       4   : #ede0c8 / #776e65
+       8   : #f2b179 / #f9f6f2
+      16   : #f59563 / #f9f6f2
+      32   : #f67c5f / #f9f6f2
+      64   : #f65e3b / #f9f6f2
+     128   : #edcf72 / #f9f6f2
+     256   : #edcc61 / #f9f6f2
+     512   : #edc850 / #f9f6f2
+    1024   : #edc53f / #f9f6f2
+    2048   : #edc22e / #f9f6f2
+    super  : #3c3a32 / #f9f6f2
+
+   Animation (§8.3):
+     - Spawn (MUST) : scale 0 → 1 in ≤ 200ms.
+     - Merge (MUST) : pulse to 1.1× and back in ≤ 250ms.
+     - Slide (SHOULD): translate to destination in ≤ 200ms ease-out.
+
+   `prefers-reduced-motion: reduce` MUST zero slide + merge durations
+   (§8.3 last paragraph).
+   --------------------------------------------------------------------------- */
+
+/* CSS variables — single source of truth so a future v1.1 theme swap touches
+   one file, but every value here is also the spec-verbatim hex. */
+:root {
+  --color-page-bg: #faf8ef;
+  --color-board-bg: #bbada0;
+  --color-cell-empty: rgba(238, 228, 218, 0.35);
+  --color-chrome-text: #776e65;
+  --color-chrome-text-soft: #8f7a66;
+  --color-button-bg: #8f7a66;
+  --color-button-text: #f9f6f2;
+
+  /* spec §8.3 timings */
+  --dur-slide: 180ms;
+  --dur-merge: 220ms;
+  --dur-spawn: 180ms;
+
+  /* board geometry — board is 4×4; tile size derives from container width
+     and a fixed gap so the math stays simple inline-style-free. */
+  --board-size: 460px;
+  --board-padding: 12px;
+  --cell-gap: 12px;
+  --cell-size: calc((var(--board-size) - 2 * var(--board-padding) - 3 * var(--cell-gap)) / 4);
+}
+
+/* ----- page chrome ------------------------------------------------------- */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-page-bg);
+  color: var(--color-chrome-text);
+  font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-root {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ----- header ------------------------------------------------------------ */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 64px;
+  color: var(--color-chrome-text);
+  letter-spacing: -0.02em;
+}
+
+.header__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.scores {
+  display: flex;
+  gap: 8px;
+}
+
+.score-box {
+  background: var(--color-board-bg);
+  color: var(--color-button-text);
+  padding: 8px 16px;
+  min-width: 70px;
+  border-radius: 4px;
+  text-align: center;
+  position: relative;
+}
+
+.score-box__label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #eee4da;
+}
+
+.score-box__value {
+  display: block;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--color-button-text);
+}
+
+.btn {
+  background: var(--color-button-bg);
+  color: var(--color-button-text);
+  border: 0;
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  text-transform: none;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  background: #7c6a59;
+  outline: none;
+}
+
+/* ----- board ------------------------------------------------------------- */
+
+.board-frame {
+  position: relative;
+  width: var(--board-size);
+  height: var(--board-size);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--board-padding);
+  background: var(--color-board-bg);
+  border-radius: 6px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.board-frame:focus-visible {
+  box-shadow: 0 0 0 3px #8f7a66;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--cell-size));
+  grid-template-rows: repeat(4, var(--cell-size));
+  gap: var(--cell-gap);
+  width: 100%;
+  height: 100%;
+}
+
+.cell {
+  background: var(--color-cell-empty);
+  border-radius: 4px;
+}
+
+/* tile vnodes are absolutely positioned over the grid so React preserves
+   identity across slides and CSS transitions animate the move. */
+.tile {
+  position: absolute;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  line-height: 1;
+  border-radius: 4px;
+  /* slide animation per §8.3 — translate only; the JS sets the translate. */
+  transition: transform var(--dur-slide) ease-out;
+  will-change: transform;
+  user-select: none;
+}
+
+.tile--digits-3 { font-size: 32px; }
+.tile--digits-4 { font-size: 26px; }
+.tile--digits-5 { font-size: 20px; }
+
+.tile--v-2     { background: #eee4da; color: #776e65; }
+.tile--v-4     { background: #ede0c8; color: #776e65; }
+.tile--v-8     { background: #f2b179; color: #f9f6f2; }
+.tile--v-16    { background: #f59563; color: #f9f6f2; }
+.tile--v-32    { background: #f67c5f; color: #f9f6f2; }
+.tile--v-64    { background: #f65e3b; color: #f9f6f2; }
+.tile--v-128   { background: #edcf72; color: #f9f6f2; }
+.tile--v-256   { background: #edcc61; color: #f9f6f2; }
+.tile--v-512   { background: #edc850; color: #f9f6f2; }
+.tile--v-1024  { background: #edc53f; color: #f9f6f2; }
+.tile--v-2048  { background: #edc22e; color: #f9f6f2; }
+.tile--v-super { background: #3c3a32; color: #f9f6f2; }
+
+/* spawn: scale 0→1, ≤200ms, per §8.3. The `--spawn` class is applied
+   while the tile's id is in :ui.animation.spawns; a setTimeout removes
+   it via :ui/animation-finished. */
+.tile--spawn {
+  animation: tile-spawn var(--dur-spawn) ease-out;
+}
+
+@keyframes tile-spawn {
+  from { transform: var(--tile-translate, none) scale(0); }
+  to   { transform: var(--tile-translate, none) scale(1); }
+}
+
+/* merge: pulse to 1.1× and back, ≤250ms, per §8.3. Driven by an
+   animation rather than a transition so it auto-reverses and we get a
+   clean `animationend` event. */
+.tile--merge {
+  animation: tile-merge var(--dur-merge) ease-out;
+  z-index: 2;
+}
+
+@keyframes tile-merge {
+  0%   { transform: var(--tile-translate, none) scale(1);   }
+  50%  { transform: var(--tile-translate, none) scale(1.1); }
+  100% { transform: var(--tile-translate, none) scale(1);   }
+}
+
+/* ----- overlays --------------------------------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(238, 228, 218, 0.73);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 5;
+  text-align: center;
+}
+
+.overlay--won {
+  background: rgba(237, 194, 46, 0.5);
+  color: #f9f6f2;
+}
+
+.overlay__title {
+  margin: 0;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.overlay--won .overlay__title { color: #f9f6f2; }
+.overlay--over .overlay__title { color: #776e65; }
+
+.overlay__actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ----- footer ----------------------------------------------------------- */
+
+.footer {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-chrome-text);
+  line-height: 1.5;
+}
+
+.footer kbd {
+  background: var(--color-board-bg);
+  color: var(--color-button-text);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* ----- aria live region (visually hidden, screen-reader visible) ------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ----- responsive (≥320px) ---------------------------------------------- */
+
+@media (max-width: 520px) {
+  :root {
+    --board-size: calc(100vw - 32px);
+  }
+  .title { font-size: 48px; }
+  .tile  { font-size: 28px; }
+  .tile--digits-3 { font-size: 24px; }
+  .tile--digits-4 { font-size: 20px; }
+  .tile--digits-5 { font-size: 16px; }
+  .overlay__title { font-size: 40px; }
+}
+
+/* ----- prefers-reduced-motion: reduce ----------------------------------
+   Spec §8.3 last paragraph: slide AND merge durations MUST be 0ms.
+   Spawn MAY be instant; we zero it too for consistency. */
+
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition-duration: 0ms !important;
+  }
+  .tile--spawn,
+  .tile--merge {
+    animation-duration: 0ms !important;
+    animation: none !important;
+  }
+}
