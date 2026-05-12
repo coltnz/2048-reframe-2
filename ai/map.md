@@ -4,18 +4,17 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 5 (1 in_progress spec; 1 audit dispatched; 3 v1+ deferred)
-- **In-flight dispatches:** 1 of 2 (concurrency cap: 2; see CLAUDE.md rule 5)
+- **Open beads:** 4 (1 in_progress spec; 3 v1+ deferred). Audit bead `reframe-2048-76o` closed.
+- **In-flight dispatches:** 0 of 2 (concurrency cap: 2; see CLAUDE.md rule 5).
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
-- **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.2** — audit folded in; **v0.2 audit in flight**.
-- **Last updated:** 2026-05-12 — spec v0.2 landed; v0.2 audit dispatched.
+- **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.3 — dispatch-ready**. D-01..D-05 folded from v0.2 audit; D-06..D-09 + 10 NITs deferred per operator no-pedantry redirect.
+- **Last updated:** 2026-05-12 — spec v0.3 landed; ready to decompose into implementation beads (cap 2 in-flight per CLAUDE.md rule 5).
 
 ## Open beads by category
 
 ### Spec authoring
-- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in.
-- `reframe-2048-76o` (P1, open) — Audit v0.2. **Dispatched** to general-purpose agent (see In-flight dispatches).
+- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in; v0.2 audit returned 1 blocker + 4 cheap fixes for v0.3.
 
 ### v1+ deferred (filed against spec non-goals)
 - `reframe-2048-o8f` (P3, open) — Touch / swipe input (NG7). Spec amendment required.
@@ -24,7 +23,7 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## In-flight dispatches
 
-- `reframe-2048-76o` — audit of spec v0.2. Read-only audit; writes to `/ai/audits/2026-05-12-spec-2048-reframe-2-v0.2.md`. Mayor will not touch spec/audits while this runs.
+_None — v0.2 audit returned. Awaiting operator nod before v0.3 pass._
 
 ## Recent decisions
 
@@ -36,6 +35,8 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 - 2026-05-12 — Spec v0 drafted under bead `reframe-2048-kib`; operator interview round 1 closed 4 high-leverage open questions (Reagent, best-score-only, no touch, baseline+slide animation); 5 mayor-defaulted; v0.1 committed.
 - 2026-05-12 — Background audit dispatched under bead `reframe-2048-4el`. Returned 3 BLOCKERS + 14 DEFECTS + 11 NITS + 9 CONFIRMED. Findings folded into spec v0.2. Audit bead closed; full report at `/ai/audits/2026-05-12-spec-2048-reframe-2-v0.1.md`.
 - 2026-05-12 — **Operator standing rule added: concurrency cap of 2 background-agent sessions** (CLAUDE.md rule 5). Composes with rule 4: hot-zone beads stay serial; isolated-surface beads parallel up to the ceiling of 2.
+- 2026-05-12 — **Operator redirect: pedagogy + playable canonical fidelity > pedantic schema completeness. Stop for review at the "good demo" gate.** Spec stops iterating after D-01..D-05 (v0.3); implementation aims at a playable canonical-looking 2048 and then pauses for operator review. Persisted as memory key `xorshift32-over-splitmix64` for the RNG-specific lesson.
+- 2026-05-12 — v0.2 audit returned (bead `reframe-2048-76o`, now closed). 1 BLOCKER (RNG host-precision) + 4 cheap defects folded into v0.3; deferred items left for impl-time follow-up beads per the operator redirect.
 
 ## How to update this file
 

@@ -2,9 +2,9 @@
 
 | Field           | Value                                              |
 |-----------------|----------------------------------------------------|
-| Status          | **v0.2 — background audit folded in (3 BLOCKERS + 14 DEFECTS + selected NITS resolved)** |
+| Status          | **v0.3 — dispatch-ready (audit D-01..D-05 folded in)** |
 | Spec ID         | `spec-2048-reframe-2`                              |
-| Bead history    | Drafted under `reframe-2048-kib`; audited under `reframe-2048-4el` |
+| Bead history    | Drafted under `reframe-2048-kib`; audited under `reframe-2048-4el` (v0.1) and `reframe-2048-76o` (v0.2) |
 | Editor          | Mayor (Claude session)                             |
 | Repository      | `coltnz/2048-reframe-2`                            |
 | References      | §13                                                |
@@ -234,43 +234,43 @@ Views MUST be pure functions of subscription values. There MUST be no `useState`
 
 The game lifecycle MUST be modelled as a re-frame2 state machine (`reg-machine`) with the transitions exactly as enumerated below. Implementations using a non-FSM substitute MUST justify in a spec amendment.
 
+Per re-frame2 `005-StateMachines.md`, transitions are **single-step**: one event ⇒ one transition. `:game/new` from any state therefore goes **directly to `:playing`** — the handler resets `:score`, regenerates `:tiles` (two fresh spawns per §3.3 / §3.4), clears `:ui.overlay`, and writes the new `app-db` before the transition fires. `:fresh` is the *boot* state only; once the first `:game/new` fires, the FSM does not return to `:fresh`.
+
 **Transitions (normative, exhaustive):**
 
-| From          | Event              | Guard                                  | To            |
-|---------------|--------------------|----------------------------------------|---------------|
-| `:fresh`      | `:game/new`        | —                                      | `:playing`    |
-| `:playing`    | `:game/move`       | move successful AND merge produces 2048 | `:won`        |
-| `:playing`    | `:game/move`       | move successful AND no 2048-producing merge AND no legal move post-spawn | `:over` |
-| `:playing`    | `:game/move`       | move successful AND game continues     | `:playing`    |
-| `:playing`    | `:game/new`        | —                                      | `:fresh` (then immediate `:fresh → :playing`) |
-| `:won`        | `:game/continue`   | —                                      | `:continuing` |
-| `:won`        | `:game/new`        | —                                      | `:fresh`      |
-| `:continuing` | `:game/move`       | move successful AND no legal move post-spawn | `:over` |
-| `:continuing` | `:game/move`       | move successful (any other case)       | `:continuing` |
-| `:continuing` | `:game/new`        | —                                      | `:fresh`      |
-| `:over`       | `:game/new`        | —                                      | `:fresh`      |
-| `:over`       | `:game/dismiss-over` | —                                    | `:over` (UI overlay clears; phase unchanged) |
+| From          | Event                 | Guard                                                                     | To            |
+|---------------|-----------------------|---------------------------------------------------------------------------|---------------|
+| `:fresh`      | `:game/new`           | —                                                                         | `:playing`    |
+| `:playing`    | `:game/move`          | move successful AND merge produces 2048                                   | `:won`        |
+| `:playing`    | `:game/move`          | move successful AND no 2048-producing merge AND no legal move post-spawn  | `:over`       |
+| `:playing`    | `:game/move`          | move successful AND game continues                                        | `:playing`    |
+| `:playing`    | `:game/new`           | —                                                                         | `:playing`    |
+| `:won`        | `:game/continue`      | —                                                                         | `:continuing` |
+| `:won`        | `:game/new`           | —                                                                         | `:playing`    |
+| `:continuing` | `:game/move`          | move successful AND no legal move post-spawn                              | `:over`       |
+| `:continuing` | `:game/move`          | move successful (any other case)                                          | `:continuing` |
+| `:continuing` | `:game/new`           | —                                                                         | `:playing`    |
+| `:over`       | `:game/new`           | —                                                                         | `:playing`    |
+| `:over`       | `:game/dismiss-over`  | —                                                                         | `:over` (UI overlay clears; phase unchanged) |
+
+**Ignored (state, event) pairs.** Any `(state, event)` pair not listed in the transitions table above MUST be a no-op at the FSM layer: the event is consumed without state change and without effect. The implementer MUST NOT raise. The following list is enumerative for clarity, not normative beyond the rule above:
+
+- `:fresh + :game/move`, `:fresh + :game/continue`, `:fresh + :game/dismiss-over` — no game has started yet.
+- `:won + :game/move`, `:won + :game/dismiss-over` — the win overlay blocks input (§8.1); the `:input/key-down` adapter (§4.4) MUST suppress dispatch in this phase per §6.1, and the FSM no-op rule is the second line of defence.
+- `:over + :game/move`, `:over + :game/continue` — the over overlay blocks input.
+- `:playing + :game/continue`, `:playing + :game/dismiss-over` — neither overlay is showing.
+- `:continuing + :game/continue`, `:continuing + :game/dismiss-over` — already past the win banner; no over banner.
+- Any `:storage/loaded`, `:storage/save`, `:ui/animation-finished`, `:input/key-down` event — these are NOT FSM inputs and MUST NOT cause phase transitions; they are handled by `reg-event-db` / `reg-event-fx` outside the FSM (§4.4).
 
 ASCII summary (informative):
 
 ```
-                  new                  successful-move
-       ┌──────►:fresh ──────► :playing ┬──────────────► :playing
-       │                       │ │ │   │                   │
-       │ new                   │ │ │   │ produces-2048     │ new
-       │                       │ │ │   ▼                   ▼
-       │                       │ │ │  :won ─continue─► :continuing
-       │                       │ │ │   │                   │
-       │ new (from any)        │ │ │   │ new               │ new
-       │◄──────────────────────┘ │ │   │                   │
-       │                         │ │   ▼                   │
-       │                         │ └─►:over◄───────────────┘
-       │                         │     │
-       │                         │     │ dismiss-over (overlay only)
-       │ new                     │     │
-       │◄────────────────────────┘     │
-       │                               │
-       └◄──────────────────────────────┘  new
+boot:        :fresh ─────:game/new──► :playing
+restart:     any state ─:game/new──► :playing      (single-step; handler reseeds db)
+play:        :playing ──:game/move──► :playing | :won | :over
+win:         :won ─:game/continue──► :continuing
+continue:    :continuing ─:game/move──► :continuing | :over
+dismiss:     :over ─:game/dismiss-over──► :over    (UI overlay clears; phase unchanged)
 ```
 
 Phase changes MUST be event-driven; views MUST NOT compute phase transitions.
@@ -313,7 +313,7 @@ Per re-frame2 SA-3, **every** shape on the wire MUST have a Malli schema. The CL
 ```clojure
 (def TileId            [:and :int [:fn pos?]])
 (def PowerOfTwoGeq2    [:and :int [:fn (fn [n] (and (>= n 2) (zero? (bit-and n (dec n)))))]])
-(def Cell              [:tuple [:int {:min 0 :max 3}] [:int {:min 0 :max 3}]])  ; v1: bounds match :board-dims [4 4]
+(def Cell              [:tuple [:int {:min 0}] [:int {:min 0}]])  ; row/col bounds enforced at handler boundaries against the active :board-dims (v1: 4×4). The Malli schema deliberately omits an upper bound so the same shape ports to a v1.1 5×5 board without a schema rev.
 (def Direction         [:enum :up :down :left :right])
 (def Phase             [:enum :fresh :playing :won :continuing :over])
 (def AnimationPhase    [:enum :slide :merge :spawn])
@@ -412,27 +412,38 @@ Implementations MUST validate `AppDb` on every event-handler return in dev build
 
 ### 5.3 RNG
 
-All non-determinism in the game (spawn cell selection, spawn value choice) MUST flow through a seedable pseudo-random generator threaded in `app-db` under `:game.rng-seed`. The PRNG MUST be **splitmix64** (constants from Vigna's reference implementation):
+All non-determinism in the game (spawn cell selection, spawn value choice) MUST flow through a seedable pseudo-random generator threaded in `app-db` under `:game.rng-seed`. The PRNG MUST be **xorshift32** (Marsaglia, 2003) — a 32-bit generator whose state fits cleanly in a JS `Int32`, the type that CLJS bitwise operators coerce to under IEEE-754 doubles. This avoids the precision loss that would occur with a 64-bit generator (e.g. splitmix64), whose constants exceed `Number.MAX_SAFE_INTEGER` and would silently corrupt under `unchecked-multiply` on doubles.
 
 ```clojure
+;; xorshift32 — period 2^32 − 1; the all-zero state is fixed, so seed MUST NOT be 0.
+;; All bitwise ops in CLJS coerce both operands to Int32, so `s` lives in [-2^31, 2^31 − 1]
+;; throughout — exactly representable in JS doubles. Cross-host neutral: TS, JVM Clojure,
+;; and Python all expose 32-bit bitwise semantics for this shape.
 (defn next-seed [^long s]
-  (let [s (unchecked-add s 0x9E3779B97F4A7C15)
-        z (bit-xor s (unsigned-bit-shift-right s 30))
-        z (unchecked-multiply z 0xBF58476D1CE4E5B9)
-        z (bit-xor z (unsigned-bit-shift-right z 27))
-        z (unchecked-multiply z 0x94D049BB133111EB)]
-    [s (bit-xor z (unsigned-bit-shift-right z 31))]))
-;; ⇒ [next-seed-value random-u64]
+  (let [s (bit-xor s (bit-shift-left s 13))
+        s (bit-xor s (unsigned-bit-shift-right s 17))
+        s (bit-xor s (bit-shift-left s 5))]
+    [s s]))   ; ⇒ [next-state random-int32]
 ```
 
 The spawn procedure (§3.4) MUST consume the RNG exactly twice per call, in this order:
 
-1. **Cell choice.** Compute `random-u64`; choose the empty cell at index `(mod random-u64 (count E))`.
-2. **Value choice.** Compute another `random-u64`; tile value is `2` iff the high bit of the result encodes a fraction `< 0.9` (concretely: `< 0.9 × 2^64`), else `4`.
+1. **Cell choice.** `(let [[s' r] (next-seed seed)] (nth E (mod (bit-and r 0x7FFFFFFF) (count E))))`. The `(bit-and r 0x7FFFFFFF)` masks off the sign bit, giving a non-negative integer in `[0, 2^31)`. The `(mod _ (count E))` reduction introduces a bias of at most `(count E) / 2^31 ≤ 16 / 2^31 ≈ 7.5 × 10⁻⁹`, which is negligible for v1.
+2. **Value choice.** `(let [[s'' r] (next-seed s')] (if (< (mod (bit-and r 0x7FFFFFFF) 100) 90) 2 4))`. Tile value is `2` iff `r mod 100 < 90`, i.e. **P(2) = 0.9 exactly** (modulo the same 2⁻²⁴ mod-bias). This matches the canonical `Math.random() < 0.9 ? 2 : 4` semantically without depending on host floating-point precision.
 
-The handler that invokes spawn MUST thread the updated `:rng-seed` into the returned db. Property tests (§9.4) MUST be able to drive the game to determinism by setting an initial seed.
+The handler that invokes spawn MUST thread the updated `:rng-seed` into the returned db. A worked example (single spawn call) showing both invocations:
 
-The initial seed at `:game/new` is implementation-defined but MUST default to the current wall-clock millis (production) or a fixture-injected value (tests).
+```clojure
+(let [[s'  u1] (next-seed seed)                              ; consume for cell
+      cell    (nth E (mod (bit-and u1 0x7FFFFFFF) (count E)))
+      [s'' u2] (next-seed s')                                 ; consume for value
+      value   (if (< (mod (bit-and u2 0x7FFFFFFF) 100) 90) 2 4)]
+  {:db (-> db
+           (assoc-in [:game :rng-seed] s'')
+           (place-tile cell value))})
+```
+
+Property tests (§9.4) MUST be able to drive the game to determinism by setting an initial seed. The initial seed at `:game/new` is implementation-defined but MUST default to the current wall-clock millis (production) or a fixture-injected value (tests). The seed MUST be re-checked against zero on each `:game/new` and replaced with `1` if zero (xorshift32 cannot leave the all-zero state).
 
 ---
 
@@ -632,6 +643,7 @@ Mayor-defaulted decisions (3, 6, 7, 8, 9) are spec-amendable by operator decree 
 | v0      | 2026-05-12 | Initial draft with 10 explicit open questions.                                                                                                                                                      |
 | v0.1    | 2026-05-12 | Operator interview round 1 closed Q1, Q2, Q4, Q5; mayor-defaulted Q3, Q6, Q7, Q8, Q9; Q10 moot. Decisions landed in body; §12 became a decisions log.                                              |
 | v0.2    | 2026-05-12 | Background audit (bead `reframe-2048-4el`) returned 3 BLOCKERS + 14 DEFECTS + 11 NITS + 9 CONFIRMED. Folded in: blockers A-01..A-03 (Malli everywhere; all 17+ wire shapes schematised; palette ramp inlined); defects B-01..B-14 (traversal vectors; tuple-shaped merged-from; spawn lifecycle via :ui.animation; :ui/animation-finished event added; dropped :game-state from :storage/loaded; :sub/legal-moves derivation; FSM transitions enumerated; splitmix64 RNG specified in new §5.3; localStorage failure mode; property-test sum invariant restated; Enter/c/C → :game/continue; closure-define name); nits C-01..C-11 mostly absorbed. NG9 added for vim keys. |
+| v0.3    | 2026-05-12 | Second audit (bead `reframe-2048-76o`) returned 1 BLOCKER + 8 DEFECTS + 10 NITS + 20 CONFIRMED. Folded D-01..D-05: D-01 (RNG) replaced splitmix64 with **xorshift32** because its 32-bit state lives in CLJS Int32 — fixes silent precision loss under JS doubles. D-02 (Cell) dropped 4×4 hard-code from the schema; bounds enforced at handler boundaries. D-03 (value-choice prose) rewritten as integer-domain `mod 100 < 90` giving exact P(2)=0.9. D-04 (FSM) added explicit "Ignored (state, event) pairs" clause. D-05 (FSM) collapsed `:playing + :game/new → :fresh → :playing` synthetic double-transition into a single-step `:game/new → :playing` from any state; `:fresh` is now boot-only. D-06..D-09 deferred (op-redirect: not pedantic) — left for impl-time follow-up beads. All 10 NITS skipped per same redirect. Spec is now **dispatch-ready** for an implementing agent. |
 
 ---
 
