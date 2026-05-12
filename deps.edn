@@ -75,6 +75,32 @@
           :deps/root  "implementation/machines"
           :exclusions [day8/re-frame2]}
 
+         ;; re-frame2-epoch — Tool-Pair time-travel surface. Required
+         ;; by re-frame2-story's scrubber (re-frame.story.ui.scrubber
+         ;; :require's re-frame.epoch). Not a transitive dep of
+         ;; re-frame2 core itself (per the Strategy-B per-feature
+         ;; split documented in implementation/epoch/deps.edn) so we
+         ;; have to add it explicitly here alongside the story dep.
+         io.github.day8/re-frame2-epoch
+         {:git/url    "https://github.com/day8/re-frame2.git"
+          :git/sha    "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root  "implementation/epoch"
+          :exclusions [day8/re-frame2]}
+
+         ;; re-frame2-story — Storybook-class component playground
+         ;; for re-frame2. Per docs/guide/14-stories.md every variant
+         ;; runs in its own frame against a fresh app-db; variant
+         ;; bodies are plain data (no fn-slots). Hash-routing in
+         ;; core.cljs gates `#/stories` -> mount-shell!. Production
+         ;; bundles elide every reg-* body via the closure-define
+         ;; `re-frame.story.config/enabled? false` set on the
+         ;; :app build's :release map in shadow-cljs.edn.
+         io.github.day8/re-frame2-story
+         {:git/url    "https://github.com/day8/re-frame2.git"
+          :git/sha    "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root  "tools/story"
+          :exclusions [day8/re-frame2]}
+
          ;; Malli — schema validation library re-frame2-schemas
          ;; delegates to by default. CLJS resolves malli.core/validate
          ;; at runtime, so the ns has to be required somewhere; we

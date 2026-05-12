@@ -9,15 +9,21 @@
      `:game/fsm` machine, attached the window keydown listener, and
      dispatched `:storage/loaded` + the initial `:game/new` so the
      placeholder view boots into `:playing`.
-   - bead reframe-2048-4ix (this bead, impl-views): replaces the
+   - bead reframe-2048-4ix (PR #4, impl-views): replaces the
      placeholder with the full app-view tree per spec §4.7 — header /
      board / overlay / footer — backed by the canonical §8.2 palette
      (public/css/style.css) and the §8.3 animation hooks. The ARIA
      live region rendered by `views/app/app-view` is the target of
-     the `:fx/announce` effect."
+     the `:fx/announce` effect.
+   - storybook: hash-routes `#/stories` to the re-frame2-story shell
+     and `#/` to the live app. Story registrations live in
+     `reframe-2048-2.stories`; under :release the `:closure-defines
+     {re-frame.story.config/enabled? false}` flag DCEs every reg-*
+     body and `mount-shell!` short-circuits before any DOM call."
   (:require [reagent.dom.client       :as rdc]
             [re-frame.core            :as rf]
             [re-frame.views]
+            [re-frame.story           :as story]
             [re-frame.adapter.reagent :as reagent-adapter]
             ;; Side-effecting requires — each ns registers its
             ;; handlers / fxs / subs / machines / schemas at ns-load.
@@ -30,7 +36,13 @@
             [reframe-2048-2.fsm     :as fsm]
             [reframe-2048-2.events]
             [reframe-2048-2.input   :as input]
-            [reframe-2048-2.views.app :as views-app])
+            [reframe-2048-2.views.app :as views-app]
+            ;; Story registrations. Loaded eagerly so reg-* fires at
+            ;; ns-load even on `#/` (the side-table populates once;
+            ;; mount-shell! is the only thing that touches the DOM).
+            ;; Under :release with story.config/enabled? false every
+            ;; reg-* body elides at compile time.
+            [reframe-2048-2.stories])
   (:require-macros [re-frame.views-macros :refer [reg-view]]))
 
 ;; -- Constants ---------------------------------------------------------------
@@ -49,9 +61,23 @@
    [views-app/app-view]])
 
 ;; -- Mount -------------------------------------------------------------------
+;;
+;; The live app and the Story shell each own one React root on the
+;; same `#app` DOM node, one at a time. The live app's root lives in
+;; the `live-root` atom; the Story shell allocates and owns its own
+;; root internally via `mount-shell!`. We tear one down before
+;; mounting the other.
 
-(defonce ^:private root
-  (rdc/create-root (.getElementById js/document "app")))
+(defonce ^:private live-root (atom nil))
+
+(defn- ensure-live-root! []
+  (when (nil? @live-root)
+    (reset! live-root (rdc/create-root (.getElementById js/document "app")))))
+
+(defn- tear-down-live-root! []
+  (when-let [r @live-root]
+    (try (rdc/unmount r) (catch :default _ nil))
+    (reset! live-root nil)))
 
 ;; Per-frame boot is orchestrated by a single re-frame event:
 ;; `:app/initialise` seeds the default-db and then chains the
@@ -74,23 +100,12 @@
             :on-success :storage/loaded}]
           [:dispatch [:game/new]]]}))
 
-(defn ^:export run
-  "Initialise the Reagent adapter, register every state surface, and
-   render the root view.
-
-   Called as the :init-fn for the shadow-cljs :app build (see
-   shadow-cljs.edn). Also invoked as :devtools :after-load so the
-   render survives hot reload."
-  []
-  (rf/init! reagent-adapter/adapter)
-  ;; Per Spec 002: re-frame2's frame is auto-created on first dispatch,
-  ;; but registering schemas + the machine wants the frame to exist
-  ;; first. `reg-frame` is idempotent (surgical update on re-register)
-  ;; so it's safe under hot reload.
-  (rf/reg-frame :game
-    {:doc "The single re-frame2 frame for 2048-reframe-2 (spec §4.3)."})
+(defn- mount-live! []
+  (story/unmount-shell!)
+  (ensure-live-root!)
   ;; Wrap the rest of boot in `with-frame` so `reg-app-schema` /
   ;; `reg-machine` register against `:game`, not `:rf/default`.
+  ;; Idempotent under hot reload (re-registering is a surgical update).
   (rf/with-frame :game
     (db/register-schemas!)
     (fsm/register!)
@@ -98,7 +113,50 @@
     ;; storage-read fires and the :game/new lands before the first
     ;; render.
     (rf/dispatch-sync [:app/initialise] {:frame :game}))
-  ;; Install the DOM keyboard listener exactly once.
+  (rdc/render @live-root [app-root]))
+
+(defn- mount-stories! []
+  (tear-down-live-root!)
+  (story/mount-shell! (.getElementById js/document "app")))
+
+(defn- on-hash-change! [_event]
+  (let [hash (or (.. js/window -location -hash) "")]
+    (if (re-find #"^#/stories" hash)
+      (mount-stories!)
+      (mount-live!))))
+
+(defn ^:export run
+  "Initialise the Reagent adapter, register every state surface, and
+   mount whichever surface the URL hash selects.
+
+   - `#/`        — live app (header / board / overlay / footer).
+   - `#/stories` — re-frame2-story shell with the catalogue of
+                   variants registered in `reframe-2048-2.stories`.
+
+   Called as the :init-fn for the shadow-cljs :app build (see
+   shadow-cljs.edn). Also invoked as :devtools :after-load so the
+   render survives hot reload."
+  []
+  (rf/init! reagent-adapter/adapter)
+  ;; Install the Story canonical vocabulary (seven tags, lifecycle
+  ;; machine, seven :rf.assert/* handlers, force-fx-stub decorator,
+  ;; layout-debug decorators, v1 panel set). Idempotent; under
+  ;; :release with story.config/enabled? false this short-circuits.
+  (story/install-canonical-vocabulary!)
+  ;; Per Spec 002: re-frame2's frame is auto-created on first dispatch,
+  ;; but registering schemas + the machine wants the frame to exist
+  ;; first. `reg-frame` is idempotent (surgical update on re-register)
+  ;; so it's safe under hot reload.
+  (rf/reg-frame :game
+    {:doc "The single re-frame2 frame for 2048-reframe-2 (spec §4.3)."})
+  ;; Install the DOM keyboard listener exactly once. Safe under
+  ;; `#/stories` too — the listener dispatches `[:input/key-down ...]`
+  ;; with `{:frame :game}`; on the stories surface that frame is the
+  ;; same one the live app uses but the variant frames each have
+  ;; their own app-db, so the dispatch lands on `:game` without
+  ;; disturbing the variant snapshots.
   (input/attach!)
-  ;; Render. The frame-provider scopes the subtree to `:game`.
-  (rdc/render root [app-root]))
+  ;; Wire hash-change so reloading `#/stories` lands on the shell
+  ;; without a manual click-through.
+  (.addEventListener js/window "hashchange" on-hash-change!)
+  (on-hash-change! nil))

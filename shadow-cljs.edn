@@ -27,7 +27,15 @@
    :output-dir "public/js"
    :asset-path "/js"
    :modules    {:main {:init-fn reframe-2048-2.core/run}}
-   :devtools   {:after-load reframe-2048-2.core/run}}
+   :devtools   {:after-load reframe-2048-2.core/run}
+
+   ;; Production elision for re-frame2-story per IMPL-SPEC §6.5: with
+   ;; `re-frame.story.config/enabled?` constant-folded to `false`,
+   ;; every `reg-*` macro expansion DCEs and `mount-shell!`
+   ;; short-circuits before any DOM call. Story authoring lives in
+   ;; `reframe-2048-2.stories`; hash-route `#/stories` mounts the
+   ;; shell (core.cljs).
+   :release    {:closure-defines {re-frame.story.config/enabled? false}}}
 
   :test
   {:target    :browser-test
