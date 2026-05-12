@@ -38,7 +38,45 @@
           :deps/root "implementation/core"}
 
          ;; re-frame2 Reagent adapter (mount + frame-provider context).
+         ;;
+         ;; The four sub-artefacts (reagent / schemas / machines /
+         ;; future http) each declare `day8/re-frame2 {:local/root
+         ;; "../../core"}` in their own deps.edn. With multiple gitlibs
+         ;; checkouts that resolves to four distinct local-version
+         ;; classpath entries, and clj's classpath builder rejects the
+         ;; multi-version conflict ("No known ancestor relationship
+         ;; between local versions for day8/re-frame2 ..."). The fix
+         ;; is `:exclusions [day8/re-frame2]` on every sub-artefact
+         ;; so they pick up the single top-level core/ checkout
+         ;; (the `io.github.day8/re-frame2` entry above) by lib name.
          io.github.day8/re-frame2-reagent
-         {:git/url   "https://github.com/day8/re-frame2.git"
-          :git/sha   "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
-          :deps/root "implementation/adapters/reagent"}}}
+         {:git/url    "https://github.com/day8/re-frame2.git"
+          :git/sha    "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root  "implementation/adapters/reagent"
+          :exclusions [day8/re-frame2]}
+
+         ;; re-frame2 schemas artefact (Malli-backed :spec validation
+         ;; and reg-app-schema). Added by bead reframe-2048-z0b — the
+         ;; impl-state layer attaches schemas to every event handler
+         ;; and registers AppDb under reg-app-schema for dev-time
+         ;; validation per spec §5.2.
+         io.github.day8/re-frame2-schemas
+         {:git/url    "https://github.com/day8/re-frame2.git"
+          :git/sha    "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root  "implementation/schemas"
+          :exclusions [day8/re-frame2]}
+
+         ;; re-frame2 state-machines artefact (reg-machine,
+         ;; machine-transition, the :rf/machine framework sub).
+         ;; Spec §4.8 says the game lifecycle MUST be a reg-machine.
+         io.github.day8/re-frame2-machines
+         {:git/url    "https://github.com/day8/re-frame2.git"
+          :git/sha    "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root  "implementation/machines"
+          :exclusions [day8/re-frame2]}
+
+         ;; Malli — schema validation library re-frame2-schemas
+         ;; delegates to by default. CLJS resolves malli.core/validate
+         ;; at runtime, so the ns has to be required somewhere; we
+         ;; do so in reframe-2048-2.schemas.
+         metosin/malli            {:mvn/version "0.13.0"}}}
