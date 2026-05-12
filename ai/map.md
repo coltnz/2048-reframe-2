@@ -4,21 +4,27 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 1
-- **In-flight dispatches:** 0 (concurrency cap: 2; see CLAUDE.md rule 5)
+- **Open beads:** 5 (1 in_progress spec; 1 audit dispatched; 3 v1+ deferred)
+- **In-flight dispatches:** 1 of 2 (concurrency cap: 2; see CLAUDE.md rule 5)
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
-- **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.2** — audit folded in; awaiting v0.2 audit pass.
-- **Last updated:** 2026-05-12 — spec v0.2 landed.
+- **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.2** — audit folded in; **v0.2 audit in flight**.
+- **Last updated:** 2026-05-12 — spec v0.2 landed; v0.2 audit dispatched.
 
 ## Open beads by category
 
 ### Spec authoring
-- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in. Pending: another audit pass on v0.2, then promotion to v1 once clean.
+- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in.
+- `reframe-2048-76o` (P1, open) — Audit v0.2. **Dispatched** to general-purpose agent (see In-flight dispatches).
+
+### v1+ deferred (filed against spec non-goals)
+- `reframe-2048-o8f` (P3, open) — Touch / swipe input (NG7). Spec amendment required.
+- `reframe-2048-uze` (P3, open) — In-progress game persistence (NG8). Spec amendment required.
+- `reframe-2048-cfs` (P4, open) — Vim-key bindings h/j/k/l (NG9). Spec amendment required.
 
 ## In-flight dispatches
 
-_None._
+- `reframe-2048-76o` — audit of spec v0.2. Read-only audit; writes to `/ai/audits/2026-05-12-spec-2048-reframe-2-v0.2.md`. Mayor will not touch spec/audits while this runs.
 
 ## Recent decisions
 
