@@ -4,7 +4,7 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 0
+- **Open beads:** 1
 - **In-flight dispatches:** 0
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
@@ -12,11 +12,12 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Open beads by category
 
-_No open beads yet. `bd ready` returns no work._
+### Spec authoring
+- `reframe-2048-kib` (P1, in_progress) — Draft v0 spec for 2048 in re-frame2. Linked to `spec-2048-reframe-2`. v0 awaiting operator interview on 10 open questions (§12 of the spec).
 
 ## In-flight dispatches
 
-_None._
+_None — spec drafting is mayor-direct work; background audit will be dispatched after v1._
 
 ## Recent decisions
 
