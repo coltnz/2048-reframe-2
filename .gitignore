@@ -6,6 +6,7 @@
 .dolt/
 *.db
 .beads-credential-key
+.beads
 
 # Node / shadow-cljs build artefacts (bead reframe-2048-aja)
 node_modules/
