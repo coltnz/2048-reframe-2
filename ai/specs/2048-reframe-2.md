@@ -2,7 +2,7 @@
 
 | Field           | Value                                              |
 |-----------------|----------------------------------------------------|
-| Status          | **v0 — DRAFT, awaiting operator review**           |
+| Status          | **v0.1 — operator interview round 1 complete, pending background audit** |
 | Spec ID         | `spec-2048-reframe-2`                              |
 | Bead            | `reframe-2048-kib`                                 |
 | Editor          | Mayor (Claude session)                             |
@@ -47,6 +47,8 @@ This specification defines a single-page web application that implements the can
 - **NG4.** Mobile-first or PWA installability in v1 (responsive layout is in scope; offline mode is not).
 - **NG5.** Telemetry to any third party.
 - **NG6.** Localisation / i18n in v1.
+- **NG7.** Touch / swipe input in v1 (operator decision, 2026-05-12). Filed as follow-up bead.
+- **NG8.** In-progress game persistence in v1 (operator decision, 2026-05-12). Only best score is persisted (§7). The `reframe-2048-2/game-v1` localStorage key is RESERVED for future use.
 
 ---
 
@@ -163,7 +165,7 @@ The implementation MUST be built on the **re-frame2** pattern [§13.1]. It MUST 
 
 ### 4.2 Reactive substrate
 
-[Open Question §12.1.] Default: **Reagent**. The reference re-frame2 substrate is Reagent; UIx and Helix are alternatives that re-frame2 accepts but does not require an implementer to support.
+The implementation MUST use **Reagent** as the React substrate (operator decision, 2026-05-12). Views MUST be hiccup-style Reagent forms. Form-2 / Form-3 components with `:component-did-mount`-style closure-captured state MUST NOT carry application state — they MAY exist only for DOM-handle wiring (e.g., focus management) that the re-frame2 `:fx/focus` effect (§4.5) does not cover.
 
 ### 4.3 Frame
 
@@ -293,11 +295,13 @@ Implementations MUST call `event.preventDefault()` on arrow keys to suppress pag
 
 ### 6.2 Touch
 
-[Open Question §12.4.] Default v1: keyboard MUST; touch SHOULD. If touch is provided, swipe in each of four directions MUST map to the corresponding `:game/move`.
+Touch input is **out of scope for v1** (NG7). The implementation MUST NOT register touch handlers in v1. A follow-up bead tracks adding swipe support post-v1.
 
 ### 6.3 Input buffering
 
-Concurrent keypresses MUST NOT cause two moves to resolve simultaneously. Events MUST resolve run-to-completion (per re-frame2 Deterministic Execution). A new move SHOULD NOT be accepted while an animation is in flight; alternatives are surfaced in §12.3.
+Concurrent keypresses MUST NOT cause two moves to resolve simultaneously. Events MUST resolve run-to-completion (per re-frame2 Deterministic Execution).
+
+A keypress arriving while a slide animation is still in flight MUST be **dropped** (operator decision, 2026-05-12). The implementation MUST gate `:input/key-down` on an animation-busy flag in `:ui` (§5.1) such that drops are cheap and observable. Implementations MUST NOT queue moves.
 
 ---
 
@@ -307,9 +311,11 @@ Concurrent keypresses MUST NOT cause two moves to resolve simultaneously. Events
 
 The best score MUST be persisted across reloads in `localStorage` under key `reframe-2048-2/best-score-v1` as the bare integer string. On boot, the implementation MUST read and dispatch `:storage/loaded`. On every score change such that `score > best-score`, the implementation MUST dispatch `:storage/save` with the new best score.
 
+The implementation MUST NOT provide best-score export, share, or sync features in v1. Best score is strictly per-device.
+
 ### 7.2 In-progress game
 
-[Open Question §12.5.] Default v1: in-progress games are **not** persisted. Refresh loses progress. If chosen, the persistence schema is the `StorageBlob` of §5.2 under key `reframe-2048-2/game-v1`.
+In-progress games MUST NOT be persisted in v1 (NG8). A page reload MUST start a fresh `:fresh` phase. The localStorage key `reframe-2048-2/game-v1` is RESERVED for a future bead.
 
 ---
 
@@ -320,20 +326,23 @@ The best score MUST be persisted across reloads in `localStorage` under key `ref
 - Header MUST display the game title, current score, and best score.
 - Board MUST occupy a square area centred horizontally, with cells sized responsively to fit viewport on devices ≥ 320px wide.
 - Footer MUST contain a one-paragraph instruction summary including the keyboard map of §6.1.
+- The `:won` and `:over` overlays MUST visually block the board area and MUST trap keyboard input such that the only events the overlay accepts are `:game/new`, `:game/continue` (won only), and `:game/dismiss-over` (over only). Arrow keys arriving while an overlay is shown MUST be ignored.
 
 ### 8.2 Colour palette (normative for v1)
 
-[Open Question §12.6.] Default v1: faithful clone of the canonical palette [§13.2] — background `#faf8ef`, empty-cell `#cdc1b4`, tile colours from `#eee4da` (2) through ramped warm tones to `#edc22e` (2048+).
+The implementation MUST use the canonical 2048 palette [§13.2]: background `#faf8ef`, empty-cell `#cdc1b4`, tile colours ramped from `#eee4da` (value 2) through `#edc22e` (value 2048 and above). The exact ramp is specified in `style/tile-colours.edn` (to be created by the implementing agent). Theming alternatives are out of scope for v1 (NG3). Mayor-defaulted decision (2026-05-12) — operator MAY override before v1 via spec amendment.
 
-### 8.3 Animation (normative-MUST-baseline + SHOULD-extensions)
+### 8.3 Animation (normative)
 
-The implementation MUST visually distinguish three event classes:
+Animation level: **baseline + slide SHOULD** (operator decision, 2026-05-12). The implementation MUST visually distinguish three event classes:
 
-- **Spawn:** a newly placed tile MUST scale 0 → 1 over a single visible frame (or longer).
-- **Merge:** a tile produced by merge MUST briefly emphasize (e.g., pulse to 1.1 × scale and back) within ≤ 250 ms.
-- **Slide:** moving tiles SHOULD translate from origin to destination over ≤ 200 ms, easing-out.
+- **Spawn (MUST).** A newly placed tile MUST scale 0 → 1 over a single visible frame (or longer, ≤ 200 ms).
+- **Merge (MUST).** A tile produced by merge MUST briefly emphasize (pulse to 1.1 × scale and back) within ≤ 250 ms.
+- **Slide (SHOULD).** Moving tiles SHOULD translate from origin to destination over ≤ 200 ms with an ease-out curve. An implementation that omits slide animation but ships spawn and merge animations is still conformant; the spec defect, if any, is in the SHOULD clause.
 
-If `prefers-reduced-motion: reduce` is set, slide and merge-pulse durations MUST be 0 ms; spawn MAY be instant.
+If the user agent reports `prefers-reduced-motion: reduce`, slide and merge-pulse durations MUST be 0 ms; spawn MAY be instant.
+
+Tile identity (`:id` in §3.2) is the animation handle. Implementations MUST use Reagent's keyed-render contract such that a tile with stable `:id` preserves its DOM node across the slide.
 
 ### 8.4 Accessibility (normative)
 
@@ -384,6 +393,7 @@ The implementation:
 - MUST commit a `package.json` and `deps.edn` (re-frame2 reference uses both).
 - MUST ship a CI workflow that runs unit tests and a release build on every push to `main`.
 - SHOULD ship a release that deploys to GitHub Pages from the `main` branch.
+- MUST enable re-frame2's trace / instrumentation bus in dev builds. Production builds MUST strip it (verifiable by `goog-define` or `:closure-defines` substitution at build time).
 
 ---
 
@@ -399,69 +409,24 @@ Items the implementation MUST NOT include in v1 — call out as "future work" if
 
 ---
 
-## 12. Open questions
+## 12. Decisions log
 
-> Per re-frame2 SA-4, every open question listed here MUST resolve before this spec moves to v1. Resolution is either a landed decision (rewriting the relevant section) or an explicit host-choice paragraph naming the v1 pick.
+> Per re-frame2 SA-4, every open question in this spec is closed — either by operator decision or by mayor-defaulted decision flagged for operator override. The table below is the authoritative record.
 
-### 12.1 Reactive substrate
+| #  | Topic                              | Decision                                                                 | How resolved               | Where landed       |
+|----|------------------------------------|---------------------------------------------------------------------------|----------------------------|--------------------|
+| 1  | Reactive substrate                 | Reagent                                                                  | Operator, 2026-05-12       | §4.2               |
+| 2  | Animation budget                   | Baseline (spawn + merge MUST) + slide SHOULD                             | Operator, 2026-05-12       | §8.3               |
+| 3  | Input pacing during animation      | Drop (no queue, no cancel)                                               | Mayor default, 2026-05-12  | §6.3               |
+| 4  | Touch input in v1                  | Out of scope (NG7)                                                       | Operator, 2026-05-12       | §1.3 / §6.2        |
+| 5  | In-progress game persistence       | Not persisted in v1 (NG8); key reserved                                  | Operator, 2026-05-12       | §1.3 / §7.2        |
+| 6  | Visual palette                     | Canonical 2048 palette                                                   | Mayor default, 2026-05-12  | §8.2               |
+| 7  | Best-score export / share          | None in v1                                                               | Mayor default, 2026-05-12  | §7.1               |
+| 8  | Trace / dev tooling                | Enabled in dev builds; stripped from production                          | Mayor default, 2026-05-12  | §10                |
+| 9  | Win-banner UX                      | Overlay blocks input; only `:game/new` and `:game/continue` accepted     | Mayor default, 2026-05-12  | §8.1               |
+| 10 | Stored-game versioning             | Moot — no in-progress persistence in v1                                  | Resolved by decision 5     | —                  |
 
-**Question.** Reagent (canonical re-frame2 substrate), UIx (modern hooks-based), or Helix (minimal wrapper)?
-**Recommendation.** Reagent — it is canonical for re-frame2 and best-documented for the pattern.
-**Alternatives.** UIx if the operator wants hooks-style ergonomics in views (but re-frame2 disallows hooks-for-state, so most of the hooks benefit is lost). Helix if minimal-React is a priority.
-
-### 12.2 Animation budget
-
-**Question.** Should v1 implement only the MUST-baseline of §8.3, or aim for full-fidelity match to the canonical 2048's slide/merge transitions?
-**Recommendation.** MUST-baseline plus tile-slide SHOULD-clause. Full fidelity is a follow-up bead.
-**Alternatives.** No animation at all (faster v1, looks dead); full fidelity (more work, more bugs).
-
-### 12.3 Input pacing across animation
-
-**Question.** Should a keypress during an in-flight slide be (a) dropped, (b) queued and applied after the current slide finishes, or (c) cancel the in-flight animation and apply immediately?
-**Recommendation.** (a) Drop — simplest and matches the canonical 2048.
-**Alternatives.** (b) is more "responsive" but introduces a queue that needs its own bounds. (c) feels jumpy.
-
-### 12.4 Touch support
-
-**Question.** Is touch required for v1, or SHOULD-only?
-**Recommendation.** SHOULD — keyboard MUST works on desktop; touch is a follow-up bead.
-**Alternatives.** MUST in v1 if the operator intends to demo from a phone.
-
-### 12.5 In-progress game persistence
-
-**Question.** Does v1 resume an in-progress game across reloads, or only persist best score?
-**Recommendation.** Best score only for v1; resume is a follow-up bead.
-**Alternatives.** Full resume — small additional surface, but increases v1 test matrix.
-
-### 12.6 Visual identity
-
-**Question.** Faithful clone of the canonical 2048 palette and typography, or a re-frame2 identity?
-**Recommendation.** Faithful clone — minimises bikeshedding in v1; theming is a follow-up bead.
-**Alternatives.** Distinct identity (more design work; risks looking lower-fidelity than the canonical).
-
-### 12.7 Best-score scope
-
-**Question.** Is "best score" per-device (localStorage) or also exportable / shareable?
-**Recommendation.** Per-device only in v1. No export.
-**Alternatives.** A copy-link button that encodes best score in a URL fragment (no server).
-
-### 12.8 Trace / dev tooling
-
-**Question.** Do we ship re-frame2's tracing bus enabled in dev for live event inspection?
-**Recommendation.** Yes, dev-only; production builds strip it.
-**Alternatives.** Off entirely (simpler; loses observability for AI implementers).
-
-### 12.9 Win-banner UX
-
-**Question.** Does the "You won!" overlay block input until dismissed, or can the player keep moving and merging while the overlay fades?
-**Recommendation.** Block input until the player picks Continue or New Game.
-**Alternatives.** Non-blocking — feels less ceremonial but is also less obtrusive.
-
-### 12.10 Versioning of stored game state
-
-**Question.** If we later persist in-progress games (§12.5), how do we handle stored blobs from older schema versions?
-**Recommendation.** A monotonic `:version` integer in `StorageBlob` (§5.2). On read, if `version` doesn't match v1, silently discard and start fresh.
-**Alternatives.** Migration functions per version bump — overkill until we have a second version.
+Mayor-defaulted decisions (3, 6, 7, 8, 9) are spec-amendable by operator decree at any time before v1; background agents MUST NOT re-open them without operator direction.
 
 ---
 
