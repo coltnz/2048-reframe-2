@@ -49,7 +49,7 @@
       ;; scroll. We extend the same to the other owned keys for
       ;; consistency.
       (.preventDefault dom-event))
-    (rf/dispatch [:input/key-down {:key k}])
+    (rf/dispatch [:input/key-down {:key k}] {:frame :game})
     (contains? owned-keys k)))
 
 (defonce ^:private listener-installed?
