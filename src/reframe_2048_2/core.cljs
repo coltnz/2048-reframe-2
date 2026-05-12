@@ -4,15 +4,17 @@
    Scope evolution:
    - bead reframe-2048-aja (PR #1, scaffold): mounted a placeholder
      Reagent view inside the single `:game` frame; no events / subs.
-   - bead reframe-2048-z0b (this bead, impl-state): wires every
-     registration namespace, registers the AppDb schema and the
-     `:game/fsm` machine, attaches the window keydown listener, and
-     dispatches `:storage/loaded` + the initial `:game/new` so the
+   - bead reframe-2048-z0b (PR #3, impl-state): wired every
+     registration namespace, registered the AppDb schema and the
+     `:game/fsm` machine, attached the window keydown listener, and
+     dispatched `:storage/loaded` + the initial `:game/new` so the
      placeholder view boots into `:playing`.
-
-   The placeholder view itself remains until impl-views (next bead);
-   we surface `:sub/score` and `:sub/phase` here so the live wiring is
-   visible in the browser without needing devtools."
+   - bead reframe-2048-4ix (this bead, impl-views): replaces the
+     placeholder with the full app-view tree per spec §4.7 — header /
+     board / overlay / footer — backed by the canonical §8.2 palette
+     (public/css/style.css) and the §8.3 animation hooks. The ARIA
+     live region rendered by `views/app/app-view` is the target of
+     the `:fx/announce` effect."
   (:require [reagent.dom.client       :as rdc]
             [re-frame.core            :as rf]
             [re-frame.views]
@@ -27,7 +29,8 @@
             [reframe-2048-2.subs]
             [reframe-2048-2.fsm     :as fsm]
             [reframe-2048-2.events]
-            [reframe-2048-2.input   :as input])
+            [reframe-2048-2.input   :as input]
+            [reframe-2048-2.views.app :as views-app])
   (:require-macros [re-frame.views-macros :refer [reg-view]]))
 
 ;; -- Constants ---------------------------------------------------------------
@@ -37,34 +40,13 @@
   "reframe-2048-2/best-score-v1")
 
 ;; -- Views -------------------------------------------------------------------
-;;
-;; Still a placeholder until impl-views. We surface live :sub/score
-;; and :sub/phase so a human can sanity-check the wiring without
-;; opening devtools, and we expose a 'New game' button so the
-;; placeholder is interactive enough to drive a smoke test.
-
-(reg-view placeholder []
-  (let [score @(subscribe [:sub/score])
-        best  @(subscribe [:sub/best-score])
-        phase @(subscribe [:sub/phase])
-        legal @(subscribe [:sub/legal-moves])]
-    [:div {:style {:font-family "sans-serif"
-                   :padding     "2rem"
-                   :color       "#776e65"}}
-     [:h1 "2048-reframe-2 — state wired"]
-     [:p (str "Phase: "       (name phase))]
-     [:p (str "Score: "       score)]
-     [:p (str "Best score: "  best)]
-     [:p (str "Legal moves: " (pr-str legal))]
-     [:p "Use arrow keys (or w/a/s/d) to move; n for a new game."]
-     [:button {:on-click #(dispatch [:game/new])} "New game"]]))
 
 (reg-view app-root []
   ;; Spec §4.3: single `:game` frame. The frame-provider sets the
   ;; React context so every `subscribe` / `dispatch` inside resolves
   ;; to `:game` rather than `:rf/default`.
   [rf/frame-provider {:frame :game}
-   [placeholder]])
+   [views-app/app-view]])
 
 ;; -- Mount -------------------------------------------------------------------
 

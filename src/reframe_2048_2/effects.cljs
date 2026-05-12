@@ -103,14 +103,34 @@
 
 ;; -- :fx/announce ------------------------------------------------------------
 
+;; Spec §8.4: the ARIA live region's DOM id, rendered by
+;; `reframe-2048-2.views.app/app-view`. The handler writes the message
+;; into the element's text content; screen readers announce the new
+;; text because the element has `aria-live='polite'`.
+;;
+;; We DOM-query each call rather than caching the element handle so the
+;; handler stays robust across hot-reload (which can re-create the node).
+(def ^:private a11y-live-id "a11y-live")
+
 (rf/reg-fx :fx/announce
-  {:doc  "Push `:message` into the ARIA live region (§8.4). v1 is a
-          console-info stub; the live-region DOM lands with the views
-          bead. Registering the fx-id now keeps the event grammar
-          honest — handlers can emit `:fx/announce` without raising
-          and trace consumers see the messages."
+  {:doc  "Push `:message` into the ARIA live region (§8.4). Writes the
+          message into the `#a11y-live` element rendered by `app-view`.
+          Falls back to `console.info` if the element isn't mounted
+          (e.g. during boot before the first render, or in non-browser
+          test contexts). Idempotent: writing the same string twice in
+          a row is a screen-reader no-op."
    :spec s/Fx-Announce}
   (fn handler-announce [_ctx {:keys [message]}]
     (try
+      ;; Mirror to the console for debugging / tests / trace consumers
+      ;; that don't have a DOM at hand.
       (js/console.info (str "[a11y/announce] " message))
+      (when (exists? js/document)
+        (when-let [el (.getElementById js/document a11y-live-id)]
+          ;; Clear then write so the screen-reader announces even when
+          ;; the same message repeats. The double-write is debounced
+          ;; by the browser; no flicker visible because the element is
+          ;; visually-hidden.
+          (set! (.-textContent el) "")
+          (set! (.-textContent el) message)))
       (catch :default _ nil))))
