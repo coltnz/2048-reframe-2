@@ -2,10 +2,6 @@
 
 A 2048 sliding-tile puzzle built on **re-frame2** (alpha) + **Reagent**.
 
-Status: **scaffold only** — see bead `reframe-2048-aja`. Game mechanics,
-state, events, subs, persistence and animation all land in later beads.
-See `/ai/specs/2048-reframe-2.md` for the full specification.
-
 ## Prerequisites
 
 - **Node** 18+ (we test on 20).
