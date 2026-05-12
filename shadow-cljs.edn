@@ -33,4 +33,14 @@
   {:target    :browser-test
    :test-dir  "out/browser-test"
    :ns-regexp "-test$"
-   :runner-ns shadow.test.browser}}}
+   :runner-ns shadow.test.browser}
+
+  ;; :ci — Node-targeted test build. Lets CI (and local devs without a
+  ;; browser-test runner) actually execute the test suite headlessly via
+  ;; `node out/node-tests.js`. Same ns-regexp as :test so the same files
+  ;; pick up.
+  :ci
+  {:target        :node-test
+   :output-to     "out/node-tests.js"
+   :ns-regexp     "-test$"
+   :autorun       false}}}
