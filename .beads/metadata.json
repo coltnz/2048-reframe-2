@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "reframe_2048",
+  "project_id": "4ec05858-1388-4da3-8a3f-4ab7624158be"
+}
