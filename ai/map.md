@@ -7,7 +7,7 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 - **Open beads:** 0
 - **In-flight dispatches:** 0
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
-- **Beads:** `bd` 1.0.3 installed via Homebrew core. **Upstream 1.0.4 available** (released 2026-05-09). Upgrade pending operator approval.
+- **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
 - **Last updated:** 2026-05-12 — project initialised, beads installed, mayor method standing rules adopted, git repo created.
 
 ## Open beads by category
@@ -24,6 +24,7 @@ _None._
 - 2026-05-12 — Installed `bd` (beads) v1.0.3 via Homebrew. Hooks wired: SessionStart, PreCompact. `git config beads.role maintainer` set for the mayor.
 - 2026-05-12 — Initialised git on `main` branch. Created GitHub repo `coltnz/2048-reframe-2` (private). Local dir name `reframe-2048` retained; official name is `2048-reframe-2`.
 - 2026-05-12 — Re-ran `bd init` after `git init` because the original bd init (pre-git) registered the workspace under a path-fallback ID that bd could no longer auto-discover once git was initialised. Workspace now registered under git-aware Repository ID `ef9ffe61`. Persisted as memory key `bd-init-order`.
+- 2026-05-12 — Upgraded `bd` 1.0.3 → 1.0.4 via `brew upgrade beads`. Patch release: new `bd init-safety` plus `--reinit-local`/`--discard-remote` flags, `--force` deprecated for `--reinit-local`, plus bug fixes (close routing, dolt-in-git hook recursion, packaging). No breaking changes for this project.
 
 ## How to update this file
 
