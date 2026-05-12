@@ -94,18 +94,28 @@
 (defn- on-merge-end
   "Spec §8.3: dispatch :ui/animation-finished on the keyframe completion
    of the merge pulse. The tile keeps a `--tile-translate` CSS-var in
-   its inline style so the pulse keyframes don't reset its position."
+   its inline style so the pulse keyframes don't reset its position.
+
+   `animationend` fires OUTSIDE the React render context, so the
+   dispatch MUST explicitly target `:game` — without it, the dispatch
+   defaults to `:rf/default` where no handler is registered, the
+   spawn/merge/slide queue never drains, and `:sub/animation-busy?`
+   stays stuck at true (which silently gates all keyboard input per
+   spec §6.3)."
   [tile-id _e]
-  (rf/dispatch [:ui/animation-finished {:phase :merge :tile-id tile-id}]))
+  (rf/dispatch [:ui/animation-finished {:phase :merge :tile-id tile-id}] {:frame :game}))
 
 (defn- on-slide-end
   "Spec §8.3: dispatch :ui/animation-finished on `transitionend` of the
    `transform` property only — Reagent / browsers can fire
    transitionend for other properties (e.g. background-color from a
-   class flip); we'd otherwise drain the slide queue prematurely."
+   class flip); we'd otherwise drain the slide queue prematurely.
+
+   `transitionend` fires outside the React render context — see
+   `on-merge-end` for why `{:frame :game}` is required."
   [tile-id ^js e]
   (when (= "transform" (.-propertyName e))
-    (rf/dispatch [:ui/animation-finished {:phase :slide :tile-id tile-id}])))
+    (rf/dispatch [:ui/animation-finished {:phase :slide :tile-id tile-id}] {:frame :game})))
 
 ;; -- Spawn timeout side-effect ----------------------------------------------
 ;;
@@ -118,11 +128,14 @@
 (defonce ^:private spawn-timeouts (atom #{}))
 
 (defn- ensure-spawn-timeout! [tile-id]
+  ;; The setTimeout callback fires outside the React render context —
+  ;; dispatch MUST target `:game` explicitly. See `on-merge-end` for
+  ;; the full reasoning.
   (when-not (contains? @spawn-timeouts tile-id)
     (swap! spawn-timeouts conj tile-id)
     (js/setTimeout
       (fn []
-        (rf/dispatch [:ui/animation-finished {:phase :spawn :tile-id tile-id}])
+        (rf/dispatch [:ui/animation-finished {:phase :spawn :tile-id tile-id}] {:frame :game})
         (swap! spawn-timeouts disj tile-id))
       220))) ;; slightly > --dur-spawn (180ms)
 
