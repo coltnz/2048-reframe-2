@@ -96,12 +96,49 @@
       ;; Post-spawn: 2 merge-produced 4s + 1 spawn = 3 tiles
       (is (= 3 (count (get-in db [:game :tiles])))
           "Post-slide 2 tiles + 1 spawn = 3 tiles.")
-      (is (pos? (count (get-in db [:ui :animation :slides])))
-          "Slide animation queue populated.")
+      ;; Every conceptually-sliding tile in [2 2 2 2] left is consumed
+      ;; by a merge in the same step. The slide queue is therefore
+      ;; correctly empty — the consumed tiles' DOM elements never get
+      ;; to fire transitionend, and stale entries would otherwise jam
+      ;; :sub/animation-busy? forever (see slide-queue-no-stale-entries
+      ;; below and the §3.5 filter in mechanics/slide).
+      (is (zero? (count (get-in db [:ui :animation :slides])))
+          "Slide queue is empty: every slid tile was consumed by a merge.")
       (is (= 2 (count (get-in db [:ui :animation :merges])))
           "Two merge animations queued.")
       (is (= 1 (count (get-in db [:ui :animation :spawns])))
           "One spawn animation queued."))))
+
+(deftest slide-queue-no-stale-entries
+  (testing "Every entry in :ui.animation.slides MUST point to a tile that still
+            exists in :game.tiles. Otherwise the tile's DOM element never fires
+            `transitionend`, the queue never drains, :sub/animation-busy? stays
+            true, and the §6.3 input-gate silently drops every subsequent
+            keypress. This regression test guards against the pathology that
+            initially shipped: a tile that slid in step N gets consumed by a
+            merge in step N+1 of the same slide loop."
+    (let [h     (handler :game/move)
+          ;; [2 _ 2 4] left → first 2 stays at [0,0], second 2 slides to
+          ;; [0,1] then merges with the first; the 4 slides into the
+          ;; now-empty [0,2]. So we expect: one merge, one slide,
+          ;; one spawn, and the slide entry MUST reference the 4.
+          tiles {1 {:id 1 :value 2 :pos [0 0]}
+                 3 {:id 3 :value 2 :pos [0 2]}
+                 4 {:id 4 :value 4 :pos [0 3]}}
+          start (-> db/default-db
+                    (assoc-in [:game :phase]    :playing)
+                    (assoc-in [:game :tiles]    tiles)
+                    (assoc-in [:game :next-id]  5)
+                    (assoc-in [:game :rng-seed] 12345))
+          {:keys [db]} (h {:db start} [:game/move {:dir :left}])
+          slide-ids (set (map :tile-id (get-in db [:ui :animation :slides])))
+          tile-ids  (set (keys (get-in db [:game :tiles])))]
+      (is (every? tile-ids slide-ids)
+          "Every slide-queue tile-id MUST exist in :game.tiles.")
+      (is (pos? (count slide-ids))
+          "This scenario has a real slide (the 4 slides into the gap).")
+      (is (= 1 (count (get-in db [:ui :animation :merges])))
+          "One merge (the two 2s)."))))
 
 (deftest game-move-unsuccessful-is-noop
   (testing "An unsuccessful move makes no app-db changes (§3.5)"

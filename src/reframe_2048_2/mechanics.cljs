@@ -166,10 +166,26 @@
            next-id           next-id
            merged-targets    #{}]
       (if (empty? ids)
-        (let [moved? (or (seq slide-events) (seq merge-events))]
+        (let [moved?         (or (seq slide-events) (seq merge-events))
+              ;; A tile that slid in step N can still be consumed by a
+              ;; later merge in step N+1 (e.g. `[2 _ 2 4]` left: the
+              ;; first 2 slides to col 1; the second 2 then slides AND
+              ;; merges with it, dissoc'ing the first one). Its
+              ;; slide-event stays in the events list but its DOM
+              ;; element disappears in the same render — so the
+              ;; browser never fires `transitionend` for it and the
+              ;; :ui.animation.slides queue can never drain through it.
+              ;; That stuck entry then keeps :sub/animation-busy? true
+              ;; and silently drops every subsequent keypress (§6.3).
+              ;;
+              ;; Filter slide-events down to tiles that still exist in
+              ;; the final by-id; the consumed ones are accounted for
+              ;; in merge-events anyway.
+              live-slides    (vec (filter #(contains? by-id (:tile-id %))
+                                          slide-events))]
           {:tiles       by-id
            :score-delta score-delta
-           :slides      (vec slide-events)
+           :slides      live-slides
            :merges      (vec merge-events)
            :next-id     next-id
            :moved?      (boolean moved?)})
