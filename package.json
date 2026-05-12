@@ -1,0 +1,17 @@
+{
+  "name": "2048-reframe-2",
+  "version": "0.0.0-SNAPSHOT",
+  "private": true,
+  "description": "2048 on re-frame2 + Reagent — scaffold (bead reframe-2048-aja).",
+  "devDependencies": {
+    "shadow-cljs": "2.28.20",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "scripts": {
+    "watch": "shadow-cljs watch app",
+    "compile": "shadow-cljs compile app",
+    "release": "shadow-cljs release app",
+    "test:compile": "shadow-cljs compile test"
+  }
+}

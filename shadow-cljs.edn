@@ -1,0 +1,36 @@
+;; shadow-cljs build descriptor for 2048-reframe-2.
+;;
+;; Two builds (scope per bead reframe-2048-aja):
+;;
+;;   :app   — :browser target, dev HTTP server on :8080, hot reload.
+;;            init-fn calls (reframe-2048-2.core/run) which mounts a
+;;            placeholder Reagent view inside a single re-frame2 frame
+;;            named :game (spec §4.3).
+;;
+;;   :test  — :browser-test target. Empty test corpus today; the build
+;;            must still compile clean so CI can keep an eye on the
+;;            test toolchain from day one. Test ns-regexp matches
+;;            files ending in -test (zero matches at v0 of the scaffold
+;;            is fine).
+;;
+;; :deps {} tells shadow-cljs to take its JVM/library deps AND its
+;; CLJS :source-paths from deps.edn (where :paths is ["src" "test"]).
+;; This avoids the "source-paths in shadow-cljs.edn were ignored when
+;; using :deps" warning.
+{:deps         {}
+
+ :dev-http     {8080 "public"}
+
+ :builds
+ {:app
+  {:target     :browser
+   :output-dir "public/js"
+   :asset-path "/js"
+   :modules    {:main {:init-fn reframe-2048-2.core/run}}
+   :devtools   {:after-load reframe-2048-2.core/run}}
+
+  :test
+  {:target    :browser-test
+   :test-dir  "out/browser-test"
+   :ns-regexp "-test$"
+   :runner-ns shadow.test.browser}}}
