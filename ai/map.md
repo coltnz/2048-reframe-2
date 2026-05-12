@@ -4,8 +4,8 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 5 (1 in_progress spec; 1 impl-state dispatched; 3 v1+ deferred). Scaffold + mechanics merged (PRs #1, #2).
-- **In-flight dispatches:** 1 of 2 (sequential mode for this branched session — worktree isolation unavailable; serial keeps the shared tree sane).
+- **Open beads:** 7 (1 in_progress spec; 1 impl-views dispatched; 2 follow-ups post-demo; 3 v1+ deferred). Scaffold + mechanics + state merged (PRs #1, #2, #3).
+- **In-flight dispatches:** 1 of 2 (sequential mode; views is the **last bead before the demo gate**).
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
 - **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.3 — dispatch-ready**. D-01..D-05 folded from v0.2 audit; D-06..D-09 + 10 NITs deferred per operator no-pedantry redirect.
@@ -17,9 +17,14 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 - `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At **v0.3 (dispatch-ready)**.
 
 ### Implementation
-- ~~`reframe-2048-aja`~~ — impl-scaffold **merged** as PR #1 (`9fa56e8`). Worker 81,818 tokens / 8.7 min.
-- ~~`reframe-2048-w9e`~~ — impl-mechanics **merged** as PR #2 (`5035026`). Worker 69,682 tokens / 8.25 min. 18 tests / 54 assertions green. Surfaced one spec defect (`slide` needed `next-id` as a 4th arg — worker added it correctly).
-- `reframe-2048-z0b` (P1, open) — **impl-state**: app-db, ~30 Malli schemas, all `reg-event-*` / `reg-sub` / `reg-fx`, `reg-machine` FSM, `:input/key-down` adapter. **Dispatched.** Hot-zone (touches many central files).
+- ~~`reframe-2048-aja`~~ — impl-scaffold **merged** as PR #1. 81,818 tokens.
+- ~~`reframe-2048-w9e`~~ — impl-mechanics **merged** as PR #2. 69,682 tokens.
+- ~~`reframe-2048-z0b`~~ — impl-state **merged** as PR #3. 209,530 tokens. 62 tests / 153 assertions green. Surfaced 5 spec defects (filed as `reframe-2048-3sl`).
+- `reframe-2048-4ix` (P1, open) — **impl-views: Reagent views, palette, animations — the demo bead.** **Dispatched.** After merge, mayor manually verifies the playable demo and pauses for operator review.
+
+### Post-demo follow-ups
+- `reframe-2048-5hs` (P2, open) — impl-trace-define: §10 closure-define + CI grep (one spec MUST that the state worker noted is functionally covered by `goog.DEBUG`; close the formal gap).
+- `reframe-2048-3sl` (P2, open) — spec-v0.4: fold the 6 impl-discovered spec defects + the 4 deferred v0.2-audit defects (D-06..D-09).
 
 ### v1+ deferred (filed against spec non-goals)
 - `reframe-2048-o8f` (P3, open) — Touch / swipe input (NG7). Spec amendment required.
@@ -28,14 +33,15 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## In-flight dispatches
 
-- `reframe-2048-z0b` — impl-state. Background agent on shared tree. Brief: schemas, db, events, subs, effects, FSM, input adapter + tests. Mayor will not touch `src/reframe_2048_2/{schemas,db,events,subs,effects,fsm,input,core}.cljs`, the new `test/reframe_2048_2/{events,fsm,integration}_test.cljs`, or `shadow-cljs.edn` while this runs.
+- `reframe-2048-4ix` — impl-views (the demo bead). Background agent on shared tree. Brief: views (header/board/overlay/footer), canonical palette CSS, animations per §8.3, a11y wiring. Mayor will not touch `src/reframe_2048_2/views/*`, `src/reframe_2048_2/core.cljs`, `public/index.html`, `public/css/*` while this runs.
 
 **Usage data so far (operator baseline):**
 - v0.2 audit (read-only): 55,511 tokens / 3.5 min.
-- impl-scaffold (write + npm install + 66 tool uses): 81,818 tokens / 8.7 min.
-- impl-mechanics (pure CLJS, 44 tool uses): 69,682 tokens / 8.25 min.
-- **Cumulative background: ~257k tokens.**
-- Estimate for state: ~120–180k tokens (largest impl bead; many files, schemas, integration with mechanics).
+- impl-scaffold: 81,818 tokens / 8.7 min.
+- impl-mechanics: 69,682 tokens / 8.25 min.
+- impl-state: 209,530 tokens / 25 min.
+- **Cumulative background: ~466k tokens.**
+- Estimate for views: ~100–150k tokens (CSS + layout + animation work; no npm churn).
 
 ## Recent decisions
 
@@ -52,6 +58,7 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 - 2026-05-12 — **impl-scaffold merged** (PR #1, `9fa56e8`). re-frame2 alpha installed via git dep at SHA `399a586`. Worker hit two minor frictions (shadow-cljs JVM compiler missing from npm package; `:source-paths` ignored when `:deps {}` is set) — both documented inline. CI workflow green. Cost: 81,818 tokens / 8.7 min. Worker did not commit its bd-close export; mayor captured it on the branch before merge (orphaned by branch deletion; bd dolt has it).
 - 2026-05-12 — **Dispatch mode: sequential.** Worktree isolation refused in the `/btw`-branched session (harness state recorded `is_git=false` at session start, pre-`git init`). Parallel-on-shared-tree would conflict on branch state. Reverting to one-at-a-time dispatch for the remainder of this session; full parallel-up-to-2 will resume once we're back in a session with worktree support.
 - 2026-05-12 — **impl-mechanics merged** (PR #2, `5035026`). Pure CLJS game-rule fns + xorshift32 RNG + 18 tests, all green. Surfaced spec defect: `slide [tiles dir dims]` was missing `next-id` arg — worker fixed inline; mayor should fold into a v0.4 spec amendment when next iterating the spec. Cost: 69,682 tokens / 8.25 min.
+- 2026-05-12 — **impl-state merged** (PR #3, `a57a332`). app-db + 30+ Malli schemas + all reg-event/sub/fx + FSM + input adapter + 62 tests / 153 assertions. Production release compile clean. Surfaced 5 spec defects (filed as `reframe-2048-3sl` for v0.4 amendment): Event-StorageLoaded shape mismatch, reg-machine substitute needs spec amendment, re-frame2 alpha :exclusions workaround, :app/initialise as reset-frame-db! substitute, §10 closure-define functionally subsumed by goog.DEBUG. Cost: 209,530 tokens / 25 min.
 
 ## How to update this file
 
