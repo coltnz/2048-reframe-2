@@ -28,29 +28,6 @@ npx shadow-cljs release app
 The `:app` build emits `public/js/main.js`, which `public/index.html`
 loads at the root path.
 
-## Test
-
-```bash
-# Compile the test build. No specs yet at the scaffold stage; this
-# keeps the test toolchain wired so adding the first spec is cheap.
-npx shadow-cljs compile test
-```
-
-## Project layout
-
-```
-.
-├── deps.edn                       # JVM/Clojure deps, incl. re-frame2 git dep
-├── shadow-cljs.edn                # :app and :test builds
-├── package.json                   # shadow-cljs + react devDependencies
-├── public/
-│   └── index.html                 # mounts /js/main.js into #app
-├── src/
-│   └── reframe_2048_2/
-│       └── core.cljs              # placeholder Reagent view under :game frame
-└── .github/workflows/ci.yml       # compile :app and :test on push / PR
-```
-
 ## re-frame2 dependency
 
 re-frame2 is **alpha** and not yet on Clojars. `deps.edn` pulls both the
