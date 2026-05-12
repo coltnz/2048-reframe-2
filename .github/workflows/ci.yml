@@ -1,0 +1,67 @@
+name: ci
+
+# Per bead reframe-2048-aja:
+#   - Build the :app browser bundle on every push to any branch and on
+#     every pull request targeting main.
+#   - Compile the :test build so the test toolchain stays exercised
+#     even before any tests exist.
+#
+# We deliberately do NOT run a test JS bundle yet — there are zero
+# specs at the scaffold stage. The compile step is the gate.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java (for shadow-cljs / Clojure CLI)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13.0
+        with:
+          cli: 1.11.1.1413
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Cache Maven (~/.m2) and gitlibs (~/.gitlibs)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-cljs-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-cljs-
+
+      - name: npm install
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Pre-resolve deps (clojure -P)
+        run: clojure -P
+
+      - name: shadow-cljs compile app
+        run: npx shadow-cljs compile app
+
+      - name: shadow-cljs compile test
+        run: npx shadow-cljs compile test
+
+      - name: Confirm app bundle emitted
+        run: test -s public/js/main.js

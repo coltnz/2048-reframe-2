@@ -1,0 +1,44 @@
+;; 2048-reframe-2 — Clojure CLI dependency manifest.
+;;
+;; re-frame2 is alpha and not on Clojars yet, so both the core and the
+;; Reagent adapter are pulled directly from the github.com/day8/re-frame2
+;; monorepo via :git/url + :git/sha + :deps/root. The two artefacts share
+;; one SHA — pinning a single, named commit keeps the build reproducible
+;; while we live on alpha.
+;;
+;; SHA pinned 2026-05-12 (worker session for bead reframe-2048-aja):
+;;   399a58666e0cb8bcc5faa18f8d490ce8b80df802
+;;   on day8/re-frame2 main (commit message: "fix(cofx): emit
+;;   :rf.error/no-such-cofx trace instead of println for missing cofx
+;;   (rf2-mq9o) (#346)" — 2026-05-11).
+;;
+;; To bump: replace the SHA in both :git/sha values below, then run
+;;   clojure -P              ;; pre-resolve deps; surfaces breakage
+;;   npx shadow-cljs compile app
+;; before committing.
+{;; shadow-cljs sources both the JVM classpath AND the CLJS source paths
+ ;; from this file when shadow-cljs.edn carries `:deps {}` (which it does
+ ;; — see shadow-cljs.edn). `src` and `test` therefore live here, not
+ ;; in shadow-cljs.edn's :source-paths.
+ :paths ["src" "test"]
+
+ :deps  {org.clojure/clojure       {:mvn/version "1.11.1"}
+         org.clojure/clojurescript {:mvn/version "1.11.132"}
+         reagent/reagent           {:mvn/version "2.0.1"}
+
+         ;; shadow-cljs needs to be on the classpath so `npx shadow-cljs`
+         ;; can boot its `clojure.main` entrypoint. The npm package
+         ;; supplies only the launcher; the JVM-side bits come from here.
+         thheller/shadow-cljs      {:mvn/version "2.28.20"}
+
+         ;; re-frame2 core (registry, drain, fx, trace).
+         io.github.day8/re-frame2
+         {:git/url   "https://github.com/day8/re-frame2.git"
+          :git/sha   "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root "implementation/core"}
+
+         ;; re-frame2 Reagent adapter (mount + frame-provider context).
+         io.github.day8/re-frame2-reagent
+         {:git/url   "https://github.com/day8/re-frame2.git"
+          :git/sha   "399a58666e0cb8bcc5faa18f8d490ce8b80df802"
+          :deps/root "implementation/adapters/reagent"}}}
