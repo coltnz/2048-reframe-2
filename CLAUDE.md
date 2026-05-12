@@ -68,6 +68,8 @@ The standing rules below apply to **every** session — the mayor and every back
    - Beads on **isolated surfaces** (single-artefact directories, new files, test-only directories, independent components) MAY run **in parallel**.
    - When in doubt, default to sequential.
 
+5. **Concurrency cap: 2.** No more than **two** background-agent sessions MAY be in flight at any time (operator standing rule, 2026-05-12). If a third bead is ready to dispatch, it MUST queue until one of the in-flight two completes (PR merged, branch returned, or task abandoned). This cap composes with rule 4: hot-zone beads remain serial (effective cap of 1 in that zone); isolated-surface beads run in parallel up to the ceiling of 2.
+
 5. **Specs: clarity first, RFC structure where it pays.** When writing or refining spec documents, human understanding comes first. Where appropriate, use IETF RFC structure (Abstract, Introduction, Terminology, normative sections, Security/IANA-style considerations, References) and **RFC 2119 keywords** — MUST, SHOULD, MAY, MUST NOT, SHOULD NOT — for normative passages that need to be unambiguous. Reserve the keywords for true requirements; do not sprinkle them into prose.
 
 ### Roles, restated

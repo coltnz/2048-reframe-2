@@ -5,19 +5,20 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 ## Snapshot
 
 - **Open beads:** 1
-- **In-flight dispatches:** 0
+- **In-flight dispatches:** 0 (concurrency cap: 2; see CLAUDE.md rule 5)
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
-- **Last updated:** 2026-05-12 — project initialised, beads installed, mayor method standing rules adopted, git repo created.
+- **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.2** — audit folded in; awaiting v0.2 audit pass.
+- **Last updated:** 2026-05-12 — spec v0.2 landed.
 
 ## Open beads by category
 
 ### Spec authoring
-- `reframe-2048-kib` (P1, in_progress) — Draft v0 spec for 2048 in re-frame2. Linked to `spec-2048-reframe-2`. v0 awaiting operator interview on 10 open questions (§12 of the spec).
+- `reframe-2048-kib` (P1, in_progress) — Draft spec for 2048 in re-frame2. At v0.2; v0.1 audit folded in. Pending: another audit pass on v0.2, then promotion to v1 once clean.
 
 ## In-flight dispatches
 
-_None — spec drafting is mayor-direct work; background audit will be dispatched after v1._
+_None._
 
 ## Recent decisions
 
@@ -26,6 +27,9 @@ _None — spec drafting is mayor-direct work; background audit will be dispatche
 - 2026-05-12 — Initialised git on `main` branch. Created GitHub repo `coltnz/2048-reframe-2` (private). Local dir name `reframe-2048` retained; official name is `2048-reframe-2`.
 - 2026-05-12 — Re-ran `bd init` after `git init` because the original bd init (pre-git) registered the workspace under a path-fallback ID that bd could no longer auto-discover once git was initialised. Workspace now registered under git-aware Repository ID `ef9ffe61`. Persisted as memory key `bd-init-order`.
 - 2026-05-12 — Upgraded `bd` 1.0.3 → 1.0.4 via `brew upgrade beads`. Patch release: new `bd init-safety` plus `--reinit-local`/`--discard-remote` flags, `--force` deprecated for `--reinit-local`, plus bug fixes (close routing, dolt-in-git hook recursion, packaging). No breaking changes for this project.
+- 2026-05-12 — Spec v0 drafted under bead `reframe-2048-kib`; operator interview round 1 closed 4 high-leverage open questions (Reagent, best-score-only, no touch, baseline+slide animation); 5 mayor-defaulted; v0.1 committed.
+- 2026-05-12 — Background audit dispatched under bead `reframe-2048-4el`. Returned 3 BLOCKERS + 14 DEFECTS + 11 NITS + 9 CONFIRMED. Findings folded into spec v0.2. Audit bead closed; full report at `/ai/audits/2026-05-12-spec-2048-reframe-2-v0.1.md`.
+- 2026-05-12 — **Operator standing rule added: concurrency cap of 2 background-agent sessions** (CLAUDE.md rule 5). Composes with rule 4: hot-zone beads stay serial; isolated-surface beads parallel up to the ceiling of 2.
 
 ## How to update this file
 

@@ -2,9 +2,9 @@
 
 | Field           | Value                                              |
 |-----------------|----------------------------------------------------|
-| Status          | **v0.1 — operator interview round 1 complete, pending background audit** |
+| Status          | **v0.2 — background audit folded in (3 BLOCKERS + 14 DEFECTS + selected NITS resolved)** |
 | Spec ID         | `spec-2048-reframe-2`                              |
-| Bead            | `reframe-2048-kib`                                 |
+| Bead history    | Drafted under `reframe-2048-kib`; audited under `reframe-2048-4el` |
 | Editor          | Mayor (Claude session)                             |
 | Repository      | `coltnz/2048-reframe-2`                            |
 | References      | §13                                                |
@@ -49,6 +49,7 @@ This specification defines a single-page web application that implements the can
 - **NG6.** Localisation / i18n in v1.
 - **NG7.** Touch / swipe input in v1 (operator decision, 2026-05-12). Filed as follow-up bead.
 - **NG8.** In-progress game persistence in v1 (operator decision, 2026-05-12). Only best score is persisted (§7). The `reframe-2048-2/game-v1` localStorage key is RESERVED for future use.
+- **NG9.** Vim-key bindings (`h`/`j`/`k`/`l`) for movement in v1. The canonical 2048 supports them; this spec omits them for v1 keyboard surface clarity. Filed as follow-up bead.
 
 ---
 
@@ -69,7 +70,7 @@ The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **
 - **Slide.** The deterministic transformation of board state induced by one move (§3.5).
 - **Merge.** When a moving tile of value `v` enters a cell occupied (during the same slide) by another tile of value `v`, the two tiles combine into a single tile of value `2v` at that cell.
 - **Spawn.** Placement of a new tile (§3.4) at an empty cell chosen uniformly at random.
-- **Score.** A non-negative integer; the sum of the values of all tiles produced by merge events during the current game.
+- **Score.** A non-negative integer; the sum of the values of all tiles produced by merge events during the current game. Score resets to 0 on `:game/new`.
 - **Best score.** The maximum score ever achieved on this device for this game (persisted; §7).
 - **Game phases.** `:fresh`, `:playing`, `:won`, `:continuing`, `:over` (§4.8).
 
@@ -115,11 +116,16 @@ A move is **successful** iff at least one tile changes position OR at least one 
 
 Given a move direction `d`, the implementation MUST resolve the slide as follows:
 
-1. Define a traversal order over cells such that tiles closest to the destination edge are processed first.
-   - `:up`    — rows ascending,   cols any order.
-   - `:down`  — rows descending,  cols any order.
-   - `:left`  — cols ascending,   rows any order.
-   - `:right` — cols descending,  rows any order.
+1. Define traversal vectors `rows` and `cols` such that tiles closest to the destination edge are processed first. The exact vectors per direction MUST be:
+
+   | `:dir`    | `rows`         | `cols`         |
+   |-----------|----------------|----------------|
+   | `:up`     | `[0 1 2 3]`    | `[0 1 2 3]`    |
+   | `:down`   | `[3 2 1 0]`    | `[0 1 2 3]`    |
+   | `:left`   | `[0 1 2 3]`    | `[0 1 2 3]`    |
+   | `:right`  | `[0 1 2 3]`    | `[3 2 1 0]`    |
+
+   Iterate `(for r in rows, for c in cols ...)`. Per the canonical `buildTraversals` rule: when the direction vector's component is `+1`, reverse the corresponding traversal axis.
 2. For each tile `t` in traversal order, find the **farthest** empty cell reachable in direction `d`, plus the **next** cell beyond that. Call them `farthest` and `next`.
 3. **Merge case.** If `next` exists, contains a tile `u` of equal value to `t`, AND `u` has not already been merged-into during this slide, then:
    - Remove `t` and `u`.
@@ -144,16 +150,15 @@ The first time a merge produces a tile of value **2048**, the phase transitions 
 
 ### 3.8 Lose condition
 
-The phase transitions to `:over` iff:
+The phase transitions to `:over` iff **no legal move exists in any of `:up`, `:down`, `:left`, `:right`** (equivalently: every cell is occupied AND no two adjacent cells have equal values). A legal move in direction `d` exists when resolving §3.5 against the current board would be a **successful move**. This MUST be re-evaluated after every spawn (§3.4).
 
-- Every cell is occupied, AND
-- No legal move exists in any of `:up`, `:down`, `:left`, `:right`.
-
-A legal move exists when at least one of `:up`, `:down`, `:left`, `:right` would be a successful move (§3.5). This MUST be re-evaluated after every spawn (§3.4).
+*Informative.* The "every cell occupied" conjunct is implied by "no legal move" — if any cell is empty, then at least one of the four directions would slide a tile into it and be successful. We surface it for reader intuition only.
 
 ### 3.9 Continue-after-win
 
 After `:won`, the player MAY choose `:continuing`, in which case play continues under identical rules but the win banner is dismissed. Reaching 2048 a second time MUST NOT re-fire `:won`. The phase remains `:continuing` until `:over`.
+
+*Implementation note.* Detect win by current phase, not by a separate "won-already" flag: `(when (= phase :playing) (transition-to :won))`. After `:won → :continuing`, subsequent merges that produce a 2048 tile are guarded by the phase predicate and silently ignored at the FSM layer.
 
 ---
 
@@ -173,45 +178,47 @@ The application MUST run in a single re-frame2 frame named `:game`. Multi-frame 
 
 ### 4.4 Event grammar
 
-All state mutations MUST go through `reg-event-db` or `reg-event-fx` registrations. No mutation MAY occur in views, effects without `reg-event-*` provenance, or browser callbacks bypassing the event pipeline. The following events MUST exist and MUST have stable ids exactly as named:
+All state mutations MUST go through `reg-event-db` or `reg-event-fx` registrations. No mutation MAY occur in views, effects without `reg-event-*` provenance, or browser callbacks bypassing the event pipeline. The following events MUST exist and MUST have stable ids exactly as named. Payload schemas are defined in §5.2 under matching `Event-*` names.
 
-| Event id                | Payload                       | Effect                                        |
-|-------------------------|-------------------------------|-----------------------------------------------|
-| `:game/new`             | `{}`                          | Reset db; place two spawn tiles.              |
-| `:game/move`            | `{:dir #{:up :down :left :right}}` | Resolve a move per §3.5.                    |
-| `:game/continue`        | `{}`                          | `:won → :continuing`.                         |
-| `:game/dismiss-over`    | `{}`                          | UI-only: hides the game-over banner without changing phase. |
-| `:input/key-down`       | `{:key "ArrowLeft" /* etc. */}` | Translate browser key to `:game/move` or no-op. |
-| `:storage/loaded`       | `{:best-score int :game-state map?}` | Populated on app boot from localStorage.    |
-| `:storage/save`         | `{}`                          | Effect-fx to write current state. Side-effecting via `:fx/storage-write`. |
+| Event id                  | Payload schema (§5.2)        | Effect                                                                              |
+|---------------------------|------------------------------|-------------------------------------------------------------------------------------|
+| `:game/new`               | `Event-GameNew`              | Reset `:game` to initial state; place two spawn tiles per §3.4; clear `:ui.overlay`. |
+| `:game/move`              | `Event-GameMove`             | Resolve a move per §3.5; if successful, dispatch spawn (§3.4) and lose-detection (§3.8). |
+| `:game/continue`          | `Event-GameContinue`         | Transition `:won → :continuing`; clear `:won` from `:ui.overlay`.                   |
+| `:game/dismiss-over`      | `Event-GameDismissOver`      | UI-only: clears `:over` from `:ui.overlay` (phase unchanged).                       |
+| `:input/key-down`         | `Event-InputKeyDown`         | Translate browser key to `:game/move`, `:game/new`, `:game/continue`, or `:game/dismiss-over` per §6.1; no-op for unrecognised keys. |
+| `:storage/loaded`         | `Event-StorageLoaded`        | Set `:best-score` from the persisted value (or 0 if nil/parse-failure).             |
+| `:storage/save`           | `Event-StorageSave`          | Trigger `:fx/storage-write` for the current best score.                             |
+| `:ui/animation-finished`  | `Event-UIAnimationFinished`  | Remove the corresponding entry from `:ui.animation.{slides,merges,spawns}`.         |
 
-Per re-frame2 Principle "Naming Over Position", payloads MUST be maps with explicit keys — never positional vectors beyond the event-id head.
+Per re-frame2 Principle "Naming Over Position", payloads MUST be maps with explicit keys — never positional vectors beyond the event-id head. `Event-InputKeyDown` carries `{:key <string>}` whose value-set is exactly the keys named in §6.1; any other value MUST be a silent no-op.
 
 ### 4.5 Effect grammar
 
 The implementation MUST use `reg-fx` for any side effect. v1 effects:
 
-| Effect id            | Payload                              | Behaviour                                          |
-|----------------------|--------------------------------------|----------------------------------------------------|
-| `:fx/storage-write`  | `{:key string :value map}`           | `localStorage.setItem(key, JSON.stringify(value))`. |
-| `:fx/storage-read`   | `{:key string :on-success event-id}` | Read; dispatch `:on-success` with the parsed value or `nil`. |
-| `:fx/focus`          | `{:selector string}`                 | Move keyboard focus (for accessibility, §8.4).     |
-| `:fx/announce`       | `{:message string}`                  | ARIA live-region announcement (§8.4).              |
+| Effect id            | Payload schema (§5.2) | Behaviour                                                                                                            |
+|----------------------|-----------------------|----------------------------------------------------------------------------------------------------------------------|
+| `:fx/storage-write`  | `Fx-StorageWrite`     | `localStorage.setItem(key, JSON.stringify(value))`. On any browser exception (quota, disabled, SecurityError) MUST NOT throw; SHOULD log via `:fx/announce` (info level). |
+| `:fx/storage-read`   | `Fx-StorageRead`      | `JSON.parse(localStorage.getItem(key))`; dispatch `:on-success` with the parsed value. On missing key, browser exception, or JSON parse failure: dispatch `:on-success` with `nil`. |
+| `:fx/focus`          | `Fx-Focus`            | Move keyboard focus (for accessibility, §8.4).                                                                       |
+| `:fx/announce`       | `Fx-Announce`         | Push the message into the ARIA live region (§8.4).                                                                   |
 
 Direct DOM mutation outside `reg-fx` MUST NOT occur.
 
 ### 4.6 Subscription graph
 
-Subscriptions MUST be registered with `reg-sub`. The following subs MUST exist; views below the root MUST consume only these (or sub-subs derived from these), and MUST NOT read `app-db` directly:
+Subscriptions MUST be registered with `reg-sub`. The following subs MUST exist; views below the root MUST consume only these (or sub-subs derived from these), and MUST NOT read `app-db` directly. Return-value schemas are in §5.2 under matching `Sub-*` names.
 
-| Sub id                  | Returns                                |
-|-------------------------|----------------------------------------|
-| `:sub/board`            | 4×4 vector-of-vectors of tile-id or `nil`. |
-| `:sub/tiles`            | Map of `id → tile`.                    |
-| `:sub/score`            | Integer.                               |
-| `:sub/best-score`       | Integer.                               |
-| `:sub/phase`            | One of `:fresh :playing :won :continuing :over`. |
-| `:sub/legal-moves`      | Set of `:up :down :left :right`.       |
+| Sub id                  | Returns (§5.2)     | Derivation                                                                                       |
+|-------------------------|--------------------|--------------------------------------------------------------------------------------------------|
+| `:sub/board`            | `Sub-Board`        | Build a `dims` × `dims` vector-of-vectors from `:game.tiles[*].pos`; cells with no tile are `nil`. |
+| `:sub/tiles`            | `Sub-Tiles`        | `(:tiles (:game db))`.                                                                           |
+| `:sub/score`            | `Sub-Score`        | `(:score (:game db))`.                                                                           |
+| `:sub/best-score`       | `Sub-BestScore`    | `(:best-score (:game db))`.                                                                      |
+| `:sub/phase`            | `Sub-Phase`        | `(:phase (:game db))`.                                                                           |
+| `:sub/legal-moves`      | `Sub-LegalMoves`   | For each `d ∈ {:up :down :left :right}`, trial-resolve §3.5 against the current `:tiles`; include `d` iff the trial would be a successful move. Caching by `:tiles` identity is RECOMMENDED. |
+| `:sub/animation-busy?`  | `:boolean`         | `(boolean (or (seq slides) (seq merges) (seq spawns)))` against `:ui.animation`. Used by §6.3.   |
 
 ### 4.7 View tree
 
@@ -225,14 +232,45 @@ Views MUST be pure functions of subscription values. There MUST be no `useState`
 
 ### 4.8 Game lifecycle FSM
 
-The game lifecycle MUST be modelled as a re-frame2 state machine (`reg-machine`) with transitions exactly as below. Implementations using a non-FSM substitute MUST justify in a spec amendment.
+The game lifecycle MUST be modelled as a re-frame2 state machine (`reg-machine`) with the transitions exactly as enumerated below. Implementations using a non-FSM substitute MUST justify in a spec amendment.
+
+**Transitions (normative, exhaustive):**
+
+| From          | Event              | Guard                                  | To            |
+|---------------|--------------------|----------------------------------------|---------------|
+| `:fresh`      | `:game/new`        | —                                      | `:playing`    |
+| `:playing`    | `:game/move`       | move successful AND merge produces 2048 | `:won`        |
+| `:playing`    | `:game/move`       | move successful AND no 2048-producing merge AND no legal move post-spawn | `:over` |
+| `:playing`    | `:game/move`       | move successful AND game continues     | `:playing`    |
+| `:playing`    | `:game/new`        | —                                      | `:fresh` (then immediate `:fresh → :playing`) |
+| `:won`        | `:game/continue`   | —                                      | `:continuing` |
+| `:won`        | `:game/new`        | —                                      | `:fresh`      |
+| `:continuing` | `:game/move`       | move successful AND no legal move post-spawn | `:over` |
+| `:continuing` | `:game/move`       | move successful (any other case)       | `:continuing` |
+| `:continuing` | `:game/new`        | —                                      | `:fresh`      |
+| `:over`       | `:game/new`        | —                                      | `:fresh`      |
+| `:over`       | `:game/dismiss-over` | —                                    | `:over` (UI overlay clears; phase unchanged) |
+
+ASCII summary (informative):
 
 ```
-        new
-:fresh ─────► :playing ─┬─► :won ──continue──► :continuing
-                        │                          │
-                        └─────────────────► :over ◄┘
-                            (no legal moves)
+                  new                  successful-move
+       ┌──────►:fresh ──────► :playing ┬──────────────► :playing
+       │                       │ │ │   │                   │
+       │ new                   │ │ │   │ produces-2048     │ new
+       │                       │ │ │   ▼                   ▼
+       │                       │ │ │  :won ─continue─► :continuing
+       │                       │ │ │   │                   │
+       │ new (from any)        │ │ │   │ new               │ new
+       │◄──────────────────────┘ │ │   │                   │
+       │                         │ │   ▼                   │
+       │                         │ └─►:over◄───────────────┘
+       │                         │     │
+       │                         │     │ dismiss-over (overlay only)
+       │ new                     │     │
+       │◄────────────────────────┘     │
+       │                               │
+       └◄──────────────────────────────┘  new
 ```
 
 Phase changes MUST be event-driven; views MUST NOT compute phase transitions.
@@ -244,35 +282,157 @@ Phase changes MUST be event-driven; views MUST NOT compute phase transitions.
 ### 5.1 `app-db` shape
 
 ```clojure
-{:game {:board-dims [4 4]                       ;; row-count, col-count
-        :phase      :fresh                       ;; §4.8
-        :score      0
-        :best-score 0
-        :tiles      {1 {:id 1 :value 2 :pos [0 0]
-                        :spawned? true}
-                     2 {:id 2 :value 2 :pos [3 3]
-                        :spawned? true}}
-        :next-id    3
-        :rng-seed   <opaque>}                    ;; testability; §9
- :ui   {:overlay   #{}                           ;; subset of #{:won :over}
-        :animation {:moves []  :merges []  :spawns []}}
- :input {:pending-key nil}}
+{:game  {:board-dims [4 4]              ; row-count, col-count
+         :phase      :fresh             ; §4.8
+         :score      0
+         :best-score 0
+         :tiles      {1 {:id 1 :value 2 :pos [0 0]}
+                      2 {:id 2 :value 4 :pos [3 3]}}
+         :next-id    3
+         :rng-seed   42}                ; §5.3
+ :ui    {:overlay   #{}                 ; subset of #{:won :over}
+         :animation {:slides  []        ; each: {:tile-id, :from Cell, :to Cell}
+                     :merges  []        ; each: {:tile-id, :from-ids [TileId TileId]}
+                     :spawns  []}}      ; each: {:tile-id}
+ :input {}}                             ; reserved
 ```
 
-`:tiles` is a **map by id**, not a positional 4×4. The board layout is **derived** by `:sub/board` from the tiles' `:pos`. This guarantees stable identity for animations (§8.3).
+Invariants:
+
+- `:tiles` is a **map by id**, not a positional grid. The board layout is **derived** by `:sub/board` from the tiles' `:pos`. This guarantees stable identity for animations (§8.3).
+- A tile is "freshly spawned" iff its `:id` appears in `:ui.animation.spawns`. There is no `:spawned?` field on tiles; the animation list is the single source of truth (resolves audit defect B-03).
+- Animation lists are added to by the event that produces them (`:game/move`, `:game/new`), and removed from by `:ui/animation-finished`. The implementation MUST dispatch `:ui/animation-finished` from the CSS `transitionend` event for slides and merges, and from a `setTimeout` matching the spawn duration (§8.3) for spawns.
+- `:sub/animation-busy?` (§4.6) reads these lists; an empty triple means idle and input MAY proceed.
 
 ### 5.2 Schemas
 
-Per re-frame2 SA-3, every shape on the wire MUST have a schema. v1 schemas:
+Per re-frame2 SA-3, **every** shape on the wire MUST have a Malli schema. The CLJS implementation MUST use Malli (`metosin/malli`); a non-CLJS port MUST use the equivalent in its host (TypeScript: Zod; Python: pydantic). All schemas below are expressed in Malli vector syntax.
 
-- `Cell`        — `[:tuple :int :int]` with each element in `[0 dim)`.
-- `Tile`        — `{:id pos-int :value (s/and int (powerof2 ≥ 2)) :pos Cell :spawned? boolean :merged-from [:maybe [:vector pos-int]]}`.
-- `Phase`       — `[:enum :fresh :playing :won :continuing :over]`.
-- `AppDb`       — composite of the above.
-- `EventVec`    — `[:cat keyword? :map]` — head is event-id, payload is a map.
-- `StorageBlob` — `{:version pos-int :best-score :int :game [:maybe AppDb-game]}`.
+**Core types**
 
-Implementations MUST validate `AppDb` on every event-handler return in dev builds (Malli `instrument`). Production builds MAY elide.
+```clojure
+(def TileId            [:and :int [:fn pos?]])
+(def PowerOfTwoGeq2    [:and :int [:fn (fn [n] (and (>= n 2) (zero? (bit-and n (dec n)))))]])
+(def Cell              [:tuple [:int {:min 0 :max 3}] [:int {:min 0 :max 3}]])  ; v1: bounds match :board-dims [4 4]
+(def Direction         [:enum :up :down :left :right])
+(def Phase             [:enum :fresh :playing :won :continuing :over])
+(def AnimationPhase    [:enum :slide :merge :spawn])
+(def Tile
+  [:map {:closed true}
+   [:id          TileId]
+   [:value       PowerOfTwoGeq2]
+   [:pos         Cell]
+   [:merged-from {:optional true} [:maybe [:tuple TileId TileId]]]])
+```
+
+**Event payloads (§4.4 — schemas referenced by name)**
+
+```clojure
+(def Event-GameNew              [:map {:closed true}])
+(def Event-GameMove             [:map {:closed true} [:dir Direction]])
+(def Event-GameContinue         [:map {:closed true}])
+(def Event-GameDismissOver      [:map {:closed true}])
+(def Event-InputKeyDown         [:map {:closed true} [:key :string]])
+(def Event-StorageLoaded        [:map {:closed true} [:best-score [:maybe :int]]])  ; nil ⇒ no prior value
+(def Event-StorageSave          [:map {:closed true}])
+(def Event-UIAnimationFinished  [:map {:closed true}
+                                  [:phase AnimationPhase]
+                                  [:tile-id TileId]])
+```
+
+**Effect payloads (§4.5)**
+
+```clojure
+(def Fx-StorageWrite  [:map {:closed true} [:key :string] [:value :any]])
+(def Fx-StorageRead   [:map {:closed true} [:key :string] [:on-success :keyword]])
+(def Fx-Focus         [:map {:closed true} [:selector :string]])
+(def Fx-Announce      [:map {:closed true} [:message :string]])
+```
+
+**Subscription return values (§4.6)**
+
+```clojure
+(def Sub-Board         [:vector {:min 4 :max 4} [:vector {:min 4 :max 4} [:maybe TileId]]])
+(def Sub-Tiles         [:map-of TileId Tile])
+(def Sub-Score         :int)
+(def Sub-BestScore     :int)
+(def Sub-Phase         Phase)
+(def Sub-LegalMoves    [:set Direction])
+(def Sub-AnimationBusy :boolean)
+```
+
+**Animation queue entries (§5.1)**
+
+```clojure
+(def Anim-Slide  [:map {:closed true} [:tile-id TileId] [:from Cell] [:to Cell]])
+(def Anim-Merge  [:map {:closed true} [:tile-id TileId] [:from-ids [:tuple TileId TileId]]])
+(def Anim-Spawn  [:map {:closed true} [:tile-id TileId]])
+```
+
+**`app-db`**
+
+```clojure
+(def AppDb-Game
+  [:map {:closed true}
+   [:board-dims  [:tuple [:int {:min 1}] [:int {:min 1}]]]
+   [:phase       Phase]
+   [:score       [:int {:min 0}]]
+   [:best-score  [:int {:min 0}]]
+   [:tiles       [:map-of TileId Tile]]
+   [:next-id     [:int {:min 1}]]
+   [:rng-seed    :int]])                ; see §5.3
+
+(def AppDb-UI
+  [:map {:closed true}
+   [:overlay   [:set [:enum :won :over]]]
+   [:animation [:map {:closed true}
+                [:slides  [:vector Anim-Slide]]
+                [:merges  [:vector Anim-Merge]]
+                [:spawns  [:vector Anim-Spawn]]]]])
+
+(def AppDb-Input [:map {:closed true}])  ; reserved
+
+(def AppDb
+  [:map {:closed true}
+   [:game  AppDb-Game]
+   [:ui    AppDb-UI]
+   [:input AppDb-Input]])
+```
+
+**localStorage**
+
+```clojure
+(def StorageBlob-BestScore :int)         ; key reframe-2048-2/best-score-v1
+;; reframe-2048-2/game-v1 is RESERVED per §7.2; no schema in v1.
+```
+
+**Instrumentation**
+
+Implementations MUST validate `AppDb` on every event-handler return in dev builds (Malli `instrument` or equivalent). Event payloads MUST be validated against their named schema on entry to each handler in dev. Production builds MAY elide both checks (see §10 closure-define).
+
+### 5.3 RNG
+
+All non-determinism in the game (spawn cell selection, spawn value choice) MUST flow through a seedable pseudo-random generator threaded in `app-db` under `:game.rng-seed`. The PRNG MUST be **splitmix64** (constants from Vigna's reference implementation):
+
+```clojure
+(defn next-seed [^long s]
+  (let [s (unchecked-add s 0x9E3779B97F4A7C15)
+        z (bit-xor s (unsigned-bit-shift-right s 30))
+        z (unchecked-multiply z 0xBF58476D1CE4E5B9)
+        z (bit-xor z (unsigned-bit-shift-right z 27))
+        z (unchecked-multiply z 0x94D049BB133111EB)]
+    [s (bit-xor z (unsigned-bit-shift-right z 31))]))
+;; ⇒ [next-seed-value random-u64]
+```
+
+The spawn procedure (§3.4) MUST consume the RNG exactly twice per call, in this order:
+
+1. **Cell choice.** Compute `random-u64`; choose the empty cell at index `(mod random-u64 (count E))`.
+2. **Value choice.** Compute another `random-u64`; tile value is `2` iff the high bit of the result encodes a fraction `< 0.9` (concretely: `< 0.9 × 2^64`), else `4`.
+
+The handler that invokes spawn MUST thread the updated `:rng-seed` into the returned db. Property tests (§9.4) MUST be able to drive the game to determinism by setting an initial seed.
+
+The initial seed at `:game/new` is implementation-defined but MUST default to the current wall-clock millis (production) or a fixture-injected value (tests).
 
 ---
 
@@ -280,18 +440,19 @@ Implementations MUST validate `AppDb` on every event-handler return in dev build
 
 ### 6.1 Keyboard
 
-The implementation MUST handle the following keys with the listed events:
+The implementation MUST handle the following keys with the listed events. The `:dir` payload uses the `Direction` schema from §5.2.
 
-| Key                       | Event                              |
-|---------------------------|------------------------------------|
-| `ArrowUp` / `w` / `W`     | `:game/move {:dir :up}`            |
-| `ArrowDown` / `s` / `S`   | `:game/move {:dir :down}`          |
-| `ArrowLeft` / `a` / `A`   | `:game/move {:dir :left}`          |
-| `ArrowRight` / `d` / `D`  | `:game/move {:dir :right}`         |
-| `n` / `N`                 | `:game/new`                        |
-| `Escape`                  | `:game/dismiss-over` (if overlay)  |
+| Key                       | Event                                                          | Active in phase                 |
+|---------------------------|----------------------------------------------------------------|---------------------------------|
+| `ArrowUp` / `w` / `W`     | `:game/move {:dir :up}`                                        | `:playing`, `:continuing`       |
+| `ArrowDown` / `s` / `S`   | `:game/move {:dir :down}`                                      | `:playing`, `:continuing`       |
+| `ArrowLeft` / `a` / `A`   | `:game/move {:dir :left}`                                      | `:playing`, `:continuing`       |
+| `ArrowRight` / `d` / `D`  | `:game/move {:dir :right}`                                     | `:playing`, `:continuing`       |
+| `n` / `N`                 | `:game/new`                                                    | any                             |
+| `Enter` / `c` / `C`       | `:game/continue` (only if `:won` is in `:ui.overlay`)          | `:won`                          |
+| `Escape`                  | `:game/dismiss-over` (only if `:over` is in `:ui.overlay`)     | `:over`                         |
 
-Implementations MUST call `event.preventDefault()` on arrow keys to suppress page scroll.
+Implementations MUST call `event.preventDefault()` on arrow keys to suppress page scroll. Keys not in this table MUST be silent no-ops at the `:input/key-down` handler. Vim keys (`h`/`j`/`k`/`l`) are out of scope in v1 (NG9).
 
 ### 6.2 Touch
 
@@ -301,7 +462,9 @@ Touch input is **out of scope for v1** (NG7). The implementation MUST NOT regist
 
 Concurrent keypresses MUST NOT cause two moves to resolve simultaneously. Events MUST resolve run-to-completion (per re-frame2 Deterministic Execution).
 
-A keypress arriving while a slide animation is still in flight MUST be **dropped** (operator decision, 2026-05-12). The implementation MUST gate `:input/key-down` on an animation-busy flag in `:ui` (§5.1) such that drops are cheap and observable. Implementations MUST NOT queue moves.
+A keypress arriving while a slide, merge, or spawn animation is still in flight MUST be **dropped** (operator decision, 2026-05-12). The `:input/key-down` handler MUST first check `:sub/animation-busy?` (§4.6, derived from `:ui.animation` per §5.1) and return without dispatching if true. Implementations MUST NOT queue moves. Drops MUST be observable in the trace bus (§10) so test fixtures can assert on them.
+
+When `prefers-reduced-motion: reduce` is active and animation durations are 0 ms (§8.3), `:ui.animation` is cleared synchronously at the end of the event handler and `:sub/animation-busy?` returns `false` to the next key event. Implementations MUST still dispatch `:ui/animation-finished` events for trace and test fidelity.
 
 ---
 
@@ -309,7 +472,15 @@ A keypress arriving while a slide animation is still in flight MUST be **dropped
 
 ### 7.1 Best score
 
+All v1+ localStorage keys for this project MUST be namespaced under `reframe-2048-2/` (matching the GitHub repository name).
+
 The best score MUST be persisted across reloads in `localStorage` under key `reframe-2048-2/best-score-v1` as the bare integer string. On boot, the implementation MUST read and dispatch `:storage/loaded`. On every score change such that `score > best-score`, the implementation MUST dispatch `:storage/save` with the new best score.
+
+**localStorage unavailable.** If `localStorage` is unavailable (Safari Private mode quota, disabled cookies, SecurityError) or any read/write call throws, the implementation MUST:
+
+- Treat best score as session-only (initialise to 0; do not error).
+- MUST NOT raise or surface the failure to the user as an error overlay.
+- SHOULD log the failure once at info level via `:fx/announce` (§4.5) or `js/console.info`, with the key and the exception class.
 
 The implementation MUST NOT provide best-score export, share, or sync features in v1. Best score is strictly per-device.
 
@@ -330,7 +501,32 @@ In-progress games MUST NOT be persisted in v1 (NG8). A page reload MUST start a 
 
 ### 8.2 Colour palette (normative for v1)
 
-The implementation MUST use the canonical 2048 palette [§13.2]: background `#faf8ef`, empty-cell `#cdc1b4`, tile colours ramped from `#eee4da` (value 2) through `#edc22e` (value 2048 and above). The exact ramp is specified in `style/tile-colours.edn` (to be created by the implementing agent). Theming alternatives are out of scope for v1 (NG3). Mayor-defaulted decision (2026-05-12) — operator MAY override before v1 via spec amendment.
+The implementation MUST use the canonical 2048 palette [§13.2], verbatim hex codes below. Theming alternatives are out of scope for v1 (NG3). Mayor-defaulted decision (2026-05-12) — operator MAY override before v1 via spec amendment.
+
+**Chrome**
+
+| Role             | Colour                  |
+|------------------|-------------------------|
+| Page background  | `#faf8ef`               |
+| Game container   | `#bbada0`               |
+| Empty cell       | `rgba(238, 228, 218, 0.35)` (over the game container background) |
+
+**Tiles**
+
+| Value         | Background  | Text colour |
+|---------------|-------------|-------------|
+| 2             | `#eee4da`   | `#776e65`   |
+| 4             | `#ede0c8`   | `#776e65`   |
+| 8             | `#f2b179`   | `#f9f6f2`   |
+| 16            | `#f59563`   | `#f9f6f2`   |
+| 32            | `#f67c5f`   | `#f9f6f2`   |
+| 64            | `#f65e3b`   | `#f9f6f2`   |
+| 128           | `#edcf72`   | `#f9f6f2`   |
+| 256           | `#edcc61`   | `#f9f6f2`   |
+| 512           | `#edc850`   | `#f9f6f2`   |
+| 1024          | `#edc53f`   | `#f9f6f2`   |
+| 2048          | `#edc22e`   | `#f9f6f2`   |
+| Super (≥4096) | `#3c3a32`   | `#f9f6f2`   |
 
 ### 8.3 Animation (normative)
 
@@ -342,7 +538,7 @@ Animation level: **baseline + slide SHOULD** (operator decision, 2026-05-12). Th
 
 If the user agent reports `prefers-reduced-motion: reduce`, slide and merge-pulse durations MUST be 0 ms; spawn MAY be instant.
 
-Tile identity (`:id` in §3.2) is the animation handle. Implementations MUST use Reagent's keyed-render contract such that a tile with stable `:id` preserves its DOM node across the slide.
+Tile identity (`:id` in §3.2) is the animation handle. Each tile vnode in the board view MUST carry Reagent key metadata `^{:key (:id tile)}` so that React's reconciler preserves the DOM node across the slide. Building the tile list from a positional grid (where keys would default to array index) MUST NOT happen.
 
 ### 8.4 Accessibility (normative)
 
@@ -375,12 +571,13 @@ The implementation MUST ship `test/fixtures/*.edn` whose shape conforms to re-fr
 
 ### 9.4 Property-based tests
 
-The following invariants MUST hold under randomly generated valid input sequences:
+The following invariants MUST hold under randomly generated valid input sequences (RNG-injected per §5.3):
 
-- Score is monotone non-decreasing.
-- Total of all tile values increases by exactly the value of any spawned tile (2 or 4) per move.
-- A tile's `id` is never reused while that tile still exists.
-- Phase transitions form a DAG over §4.8 (no `:over → :playing` transitions, etc.).
+- **Monotone score.** Score is monotone non-decreasing across all events.
+- **Sum delta (successful moves only).** After every **successful** `:game/move` (per §3.5), the sum of `:tiles[*].value` increases by exactly the value of the freshly-spawned tile (∈ {2, 4}). After an **unsuccessful** `:game/move`, the sum is unchanged.
+- **Stable ids.** A tile's `:id` is never reused while that tile still exists in `:tiles`. Once an id is freed (the tile was consumed by a merge), it MAY be reissued.
+- **Phase progress.** Phase transitions match the exact table in §4.8; in particular no `:over → :playing` transition occurs without an intervening `:game/new` (which goes via `:fresh`).
+- **Determinism.** Two runs with identical seed and identical event sequence produce identical `app-db` snapshots.
 
 ---
 
@@ -393,7 +590,7 @@ The implementation:
 - MUST commit a `package.json` and `deps.edn` (re-frame2 reference uses both).
 - MUST ship a CI workflow that runs unit tests and a release build on every push to `main`.
 - SHOULD ship a release that deploys to GitHub Pages from the `main` branch.
-- MUST enable re-frame2's trace / instrumentation bus in dev builds. Production builds MUST strip it (verifiable by `goog-define` or `:closure-defines` substitution at build time).
+- MUST enable re-frame2's trace / instrumentation bus in dev builds. Production builds MUST strip it. The release build MUST set `re-frame2.config/TRACE-ENABLED` to `false` via `:closure-defines` in `shadow-cljs.edn`; the test build MUST set it to `true`. CI MUST grep the release bundle to assert no occurrences of the symbol `re_frame2.trace.publish_event` (or equivalent post-DCE name) survive.
 
 ---
 
@@ -427,6 +624,14 @@ Items the implementation MUST NOT include in v1 — call out as "future work" if
 | 10 | Stored-game versioning             | Moot — no in-progress persistence in v1                                  | Resolved by decision 5     | —                  |
 
 Mayor-defaulted decisions (3, 6, 7, 8, 9) are spec-amendable by operator decree at any time before v1; background agents MUST NOT re-open them without operator direction.
+
+### 12.1 Revision history
+
+| Version | Date       | Change                                                                                                                                                                                              |
+|---------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| v0      | 2026-05-12 | Initial draft with 10 explicit open questions.                                                                                                                                                      |
+| v0.1    | 2026-05-12 | Operator interview round 1 closed Q1, Q2, Q4, Q5; mayor-defaulted Q3, Q6, Q7, Q8, Q9; Q10 moot. Decisions landed in body; §12 became a decisions log.                                              |
+| v0.2    | 2026-05-12 | Background audit (bead `reframe-2048-4el`) returned 3 BLOCKERS + 14 DEFECTS + 11 NITS + 9 CONFIRMED. Folded in: blockers A-01..A-03 (Malli everywhere; all 17+ wire shapes schematised; palette ramp inlined); defects B-01..B-14 (traversal vectors; tuple-shaped merged-from; spawn lifecycle via :ui.animation; :ui/animation-finished event added; dropped :game-state from :storage/loaded; :sub/legal-moves derivation; FSM transitions enumerated; splitmix64 RNG specified in new §5.3; localStorage failure mode; property-test sum invariant restated; Enter/c/C → :game/continue; closure-define name); nits C-01..C-11 mostly absorbed. NG9 added for vim keys. |
 
 ---
 
