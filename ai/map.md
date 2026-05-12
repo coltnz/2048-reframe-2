@@ -4,8 +4,8 @@ Live summary and categorisation of every open bead. Updated by the mayor (and an
 
 ## Snapshot
 
-- **Open beads:** 6 (1 in_progress spec; 2 post-demo follow-ups; 3 v1+ deferred). **ALL 4 IMPL PRs MERGED.**
-- **In-flight dispatches:** 0 of 2. **DEMO GATE REACHED — paused for operator visual review.**
+- **Open beads:** 6 (1 in_progress spec; 2 post-demo follow-ups; 3 v1+ deferred). **DEMO PLAYABLE END-TO-END (operator verified 2026-05-12).** 6 PRs merged: scaffold, mechanics, state, views, input-frame fix, animation-finished frame fix.
+- **In-flight dispatches:** 0 of 2.
 - **Repo:** `coltnz/2048-reframe-2` (GitHub, private) — official name; local dir is `reframe-2048` (intentional mismatch, do not rename).
 - **Beads:** `bd` 1.0.4 (latest, via Homebrew core).
 - **Spec:** `/ai/specs/2048-reframe-2.md` at **v0.3 — dispatch-ready**. D-01..D-05 folded from v0.2 audit; D-06..D-09 + 10 NITs deferred per operator no-pedantry redirect.
@@ -61,6 +61,9 @@ _None — demo gate reached. Awaiting operator visual review (open `http://local
 - 2026-05-12 — **impl-state merged** (PR #3, `a57a332`). app-db + 30+ Malli schemas + all reg-event/sub/fx + FSM + input adapter + 62 tests / 153 assertions. Production release compile clean. Surfaced 5 spec defects (filed as `reframe-2048-3sl` for v0.4 amendment): Event-StorageLoaded shape mismatch, reg-machine substitute needs spec amendment, re-frame2 alpha :exclusions workaround, :app/initialise as reset-frame-db! substitute, §10 closure-define functionally subsumed by goog.DEBUG. Cost: 209,530 tokens / 25 min.
 - 2026-05-12 — **impl-views merged** (PR #4, `08e0e2a`). **DEMO GATE REACHED.** Canonical 2048 UI: 5 view namespaces + 344-line CSS with verbatim §8.2 palette + §8.3 animation set (spawn scale, merge pulse, slide translate) + `prefers-reduced-motion: reduce` zeroing + ARIA live region wired to `:fx/announce`. Mayor pre-review build green (dev + test + release). One known a11y gap: score-changed ARIA announcement skipped (worker misread the "no-useState in views" rule as forbidding event-side debounced announcements; phase changes ARE announced; trivial follow-up). Cost: 148,128 tokens / 12.5 min.
 - 2026-05-12 — **All 4 implementation PRs merged (#1–#4).** Total background spend: ~615k tokens across 6 agent dispatches (2 audits + 4 impl). Project paused at demo gate per operator standing rule.
+- 2026-05-12 — **Demo-gate review surfaced two related bugs** that all workers + CI + tests missed. Both fixed by mayor directly (1-line + 3-line edits): PR #5 (`reframe-2048-89u`, input.cljs window listener dispatch routing) and PR #6 (`reframe-2048-82n`, board.cljs animationend / transitionend / setTimeout dispatch routing). Root cause for both: ANY rf/dispatch from outside a React render context MUST pass `{:frame :game}` explicitly — the Reagent adapter's `:adapter/current-frame` hook only resolves to `:game` inside the render cycle. Without it, dispatch defaults to a nil/`:rf/default` frame and is **silently lost** (no error trace surfaced). Folded into bead `reframe-2048-3sl` (spec-v0.4 amendment) as the highest-priority normative clause. Persisted as bd memory keys `non-react-dispatch-frame` and `mayor-demo-gate-worked`.
+- 2026-05-12 — **Demo verified PLAYABLE end-to-end.** Operator confirmed keys move tiles, score updates, animations work. Project closes its first major loop: spec-first → 4 dispatched implementation beads → 2 demo-gate fix PRs → working canonical 2048. Total mayor-method first-run footprint: ~615k tokens of background-agent work to reach a playable demo, plus mayor-direct fixes for two issues that operator review caught.
+- 2026-05-12 — **Repo visibility changed from private to public** on operator request. coltnz/2048-reframe-2 is now visible at `https://github.com/coltnz/2048-reframe-2` to anyone with the URL.
 
 ## How to update this file
 
