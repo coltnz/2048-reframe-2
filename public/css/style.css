@@ -6,20 +6,22 @@
    Every hex code in §8.2 is reproduced VERBATIM below; no aliasing through
    intermediate variables that would obscure the spec→stylesheet mapping.
 
-   --- THEME: cool-blue ----------------------------------------------------
-   Custom cool-blue → pastel ramp (operator-supplied, 2026-06-17). Dark UI
-   so the pale low-value tiles pop; 2048 / super extend the ramp into deep
-   indigo with a glow. This SUPERSEDES the §8.2 warm palette below for v1.x.
+   --- THEME: pastel-blue --------------------------------------------------
+   Custom cool-blue → pastel ramp (operator-supplied, 2026-06-17) on a
+   light pastel-blue background. 2048 / super extend the ramp into deep
+   indigo with a glow; every tile gets a faint navy edge so the pale
+   low-value tiles read on the light board. This SUPERSEDES the §8.2 warm
+   palette below for v1.x.
 
    Chrome:
-     - Page background : #0a0e18
-     - Game container  : #161d33
-     - Empty cell      : rgba(255, 255, 255, 0.045) over the container.
+     - Page background : #dbeafe
+     - Game container  : #b9d6f6
+     - Empty cell      : rgba(31, 61, 143, 0.12) over the container.
 
    Tile values — (background / text), low → high:
        2   : #eacdfa / dark      (pink-lavender)
        4   : #cbc2fb / dark      (lavender)
-       8   : #c0d3fc / dark      (periwinkle)
+       8   : #b3befc / dark      (periwinkle, clearer/non-grey)
       16   : #a6ebfb / dark      (light sky)
       32   : #b9fcfc / dark      (light cyan)
       64   : #7efae1 / dark      (mint)
@@ -42,15 +44,16 @@
 /* CSS variables — single source of truth so a future v1.1 theme swap touches
    one file, but every value here is also the spec-verbatim hex. */
 :root {
-  --color-page-bg: #0a0e18;
-  --color-board-bg: #161d33;
-  --color-cell-empty: rgba(255, 255, 255, 0.045);
-  --color-chrome-text: #d6deff;
-  --color-chrome-text-soft: #9aa6cf;
-  --color-button-bg: #2a3454;
+  --color-page-bg: #dbeafe;
+  --color-board-bg: #b9d6f6;
+  --color-cell-empty: rgba(31, 61, 143, 0.12);
+  --color-chrome-text: #16306b;
+  --color-chrome-text-soft: #4f6aa0;
+  --color-button-bg: #1f3d8f;
   --color-button-text: #eaf2ff;
+  --color-chip-bg: #1f3d8f;          /* navy cards: score boxes, kbd */
 
-  /* binary tile text colors (paired with the value ramp) */
+  /* tile text colors (paired with the value ramp) */
   --tile-text-dark: #0c1430;
   --tile-text-light: #eaf2ff;
 
@@ -118,7 +121,7 @@ html, body {
 }
 
 .score-box {
-  background: var(--color-board-bg);
+  background: var(--color-chip-bg);
   color: var(--color-button-text);
   padding: 8px 16px;
   min-width: 70px;
@@ -157,7 +160,7 @@ html, body {
 
 .btn:hover,
 .btn:focus-visible {
-  background: #38436b;
+  background: #16306b;
   outline: none;
 }
 
@@ -206,8 +209,9 @@ html, body {
   font-size: 36px;
   line-height: 1;
   border-radius: 4px;
-  /* keep the dark high-value tiles delineated from the dark board */
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  /* faint navy edge + lift so pale tiles read on the light board */
+  box-shadow: inset 0 0 0 1px rgba(31, 61, 143, 0.15),
+              0 1px 2px rgba(31, 61, 143, 0.14);
   /* slide animation per §8.3 — translate only; the JS sets the translate. */
   transition: transform var(--dur-slide) ease-out;
   will-change: transform;
@@ -220,7 +224,7 @@ html, body {
 
 .tile--v-2     { background: #eacdfa; color: var(--tile-text-dark); }
 .tile--v-4     { background: #cbc2fb; color: var(--tile-text-dark); }
-.tile--v-8     { background: #c0d3fc; color: var(--tile-text-dark); }
+.tile--v-8     { background: #b3befc; color: var(--tile-text-dark); }
 .tile--v-16    { background: #a6ebfb; color: var(--tile-text-dark); }
 .tile--v-32    { background: #b9fcfc; color: var(--tile-text-dark); }
 .tile--v-64    { background: #7efae1; color: var(--tile-text-dark); }
@@ -316,7 +320,7 @@ html, body {
 }
 
 .footer kbd {
-  background: var(--color-board-bg);
+  background: var(--color-chip-bg);
   color: var(--color-button-text);
   padding: 1px 6px;
   border-radius: 3px;
