@@ -52,6 +52,37 @@
     (rf/dispatch [:input/key-down {:key k}] {:frame :game})
     (contains? owned-keys k)))
 
+;; -- Touch / swipe adapter ---------------------------------------------------
+;;
+;; Phone/tablet input: a directional swipe on the board is the touch
+;; analogue of an arrow key. We deliberately map a swipe to the SAME
+;; key string the keyboard would produce and let board.cljs dispatch it
+;; through `:input/key-down`, so swipes inherit the §6.3 animation gate
+;; and the §6.1 direction mapping for free — no parallel move path.
+;;
+;; The DOM-side touch listeners live on the `.board-frame` element
+;; (board.cljs, via Reagent props) rather than `window`: touch must be
+;; scoped to the play area so swiping the footer/page still scrolls.
+
+(def swipe-threshold-px
+  "Minimum primary-axis travel (CSS px) before a touch drag counts as a
+   swipe rather than a tap. Small enough to feel responsive on a phone,
+   large enough to ignore incidental finger movement on a tap."
+  24)
+
+(defn swipe->key
+  "Map a touch displacement `[dx dy]` (CSS px, end − start) to the arrow
+   key string for the dominant axis, or `nil` when neither axis clears
+   `swipe-threshold-px`. On an exact diagonal tie the horizontal axis
+   wins (arbitrary but deterministic)."
+  [dx dy]
+  (let [adx (js/Math.abs dx)
+        ady (js/Math.abs dy)]
+    (cond
+      (and (< adx swipe-threshold-px) (< ady swipe-threshold-px)) nil
+      (>= adx ady) (if (pos? dx) "ArrowRight" "ArrowLeft")
+      :else        (if (pos? dy) "ArrowDown" "ArrowUp"))))
+
 (defonce ^:private listener-installed?
   (atom false))
 

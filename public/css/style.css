@@ -177,6 +177,9 @@ html, body {
   border-radius: 6px;
   box-sizing: border-box;
   outline: none;
+  /* phone/tablet: capture swipes as moves — don't let the board scroll
+     or pinch-zoom the page (board.cljs on-touch-start/-end). */
+  touch-action: none;
 }
 
 .board-frame:focus-visible {

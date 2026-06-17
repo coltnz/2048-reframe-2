@@ -34,6 +34,7 @@
   (:require [clojure.string :as str]
             [re-frame.core :as rf]
             [re-frame.views]
+            [reframe-2048-2.input :as input]
             [reframe-2048-2.views.overlay :as overlay])
   (:require-macros [re-frame.views-macros :refer [reg-view]]))
 
@@ -117,6 +118,39 @@
   (when (= "transform" (.-propertyName e))
     (rf/dispatch [:ui/animation-finished {:phase :slide :tile-id tile-id}] {:frame :game})))
 
+;; -- Touch / swipe handlers --------------------------------------------------
+;;
+;; Spec §6.1 (phone/tablet): a directional swipe on the board is the
+;; touch analogue of an arrow key. We record the first-finger origin on
+;; `touchstart` and, on `touchend`, translate the net displacement to an
+;; arrow key via `input/swipe->key`, then dispatch the SAME
+;; `:input/key-down` event the keyboard uses — so swipes inherit the
+;; §6.3 animation gate and §6.1 direction mapping. `.board-frame` carries
+;; `touch-action: none` (style.css) so these swipes don't scroll the page.
+
+(defonce ^:private touch-origin (atom nil))
+
+(defn- on-touch-start [^js e]
+  ;; Only a single-finger drag is a swipe; ignore multi-touch (pinch).
+  (let [touches (.-touches e)]
+    (if (= 1 (.-length touches))
+      (let [t (aget touches 0)]
+        (reset! touch-origin [(.-clientX t) (.-clientY t)]))
+      (reset! touch-origin nil))))
+
+(defn- on-touch-end [^js e]
+  (when-let [[x0 y0] @touch-origin]
+    (reset! touch-origin nil)
+    (let [ct (.-changedTouches e)]
+      (when (pos? (.-length ct))
+        (let [t  (aget ct 0)
+              dx (- (.-clientX t) x0)
+              dy (- (.-clientY t) y0)]
+          (when-let [k (input/swipe->key dx dy)]
+            ;; `touchend` fires outside re-frame2's render frame — target
+            ;; `:game` explicitly, same reasoning as `on-merge-end`.
+            (rf/dispatch [:input/key-down {:key k}] {:frame :game})))))))
+
 ;; -- Spawn timeout side-effect ----------------------------------------------
 ;;
 ;; Spawn class drives a `tile-spawn` keyframes animation; native
@@ -193,7 +227,9 @@
     [:div.board-frame
      {:tab-index 0
       :role      "application"
-      :aria-label "2048 game board. Use arrow keys, w/a/s/d to move; press n for a new game."}
+      :aria-label "2048 game board. Use arrow keys, w/a/s/d, or swipe to move; press n for a new game."
+      :on-touch-start on-touch-start
+      :on-touch-end   on-touch-end}
      [cell-grid dims]
      ;; Absolute-positioned tile layer, OVER the cell grid.
      (into [:div.tile-layer
