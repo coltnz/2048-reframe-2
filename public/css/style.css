@@ -6,24 +6,29 @@
    Every hex code in §8.2 is reproduced VERBATIM below; no aliasing through
    intermediate variables that would obscure the spec→stylesheet mapping.
 
-   Chrome (§8.2 'Chrome' table):
-     - Page background : #faf8ef
-     - Game container  : #bbada0
-     - Empty cell      : rgba(238, 228, 218, 0.35) over the container.
+   --- THEME: cool-blue ----------------------------------------------------
+   Custom cool-blue → pastel ramp (operator-supplied, 2026-06-17). Dark UI
+   so the pale low-value tiles pop; 2048 / super extend the ramp into deep
+   indigo with a glow. This SUPERSEDES the §8.2 warm palette below for v1.x.
 
-   Tile values (§8.2 'Tiles' table) — verbatim hex pairs of (background, text):
-       2   : #eee4da / #776e65
-       4   : #ede0c8 / #776e65
-       8   : #f2b179 / #f9f6f2
-      16   : #f59563 / #f9f6f2
-      32   : #f67c5f / #f9f6f2
-      64   : #f65e3b / #f9f6f2
-     128   : #edcf72 / #f9f6f2
-     256   : #edcc61 / #f9f6f2
-     512   : #edc850 / #f9f6f2
-    1024   : #edc53f / #f9f6f2
-    2048   : #edc22e / #f9f6f2
-    super  : #3c3a32 / #f9f6f2
+   Chrome:
+     - Page background : #0a0e18
+     - Game container  : #161d33
+     - Empty cell      : rgba(255, 255, 255, 0.045) over the container.
+
+   Tile values — (background / text), low → high:
+       2   : #eacdfa / dark      (pink-lavender)
+       4   : #cbc2fb / dark      (lavender)
+       8   : #c0d3fc / dark      (periwinkle)
+      16   : #a6ebfb / dark      (light sky)
+      32   : #b9fcfc / dark      (light cyan)
+      64   : #7efae1 / dark      (mint)
+     128   : #76e8fc / dark      (cyan)
+     256   : #4f90f8 / light     (cornflower)
+     512   : #312bf6 / light     (electric blue)
+    1024   : #1f3d8f / light     (navy)
+    2048   : #251c7a / light     (deep indigo, extended + glow)
+    super  : #140a3d / light     (deep violet, extended + glow)
 
    Animation (§8.3):
      - Spawn (MUST) : scale 0 → 1 in ≤ 200ms.
@@ -37,13 +42,17 @@
 /* CSS variables — single source of truth so a future v1.1 theme swap touches
    one file, but every value here is also the spec-verbatim hex. */
 :root {
-  --color-page-bg: #faf8ef;
-  --color-board-bg: #bbada0;
-  --color-cell-empty: rgba(238, 228, 218, 0.35);
-  --color-chrome-text: #776e65;
-  --color-chrome-text-soft: #8f7a66;
-  --color-button-bg: #8f7a66;
-  --color-button-text: #f9f6f2;
+  --color-page-bg: #0a0e18;
+  --color-board-bg: #161d33;
+  --color-cell-empty: rgba(255, 255, 255, 0.045);
+  --color-chrome-text: #d6deff;
+  --color-chrome-text-soft: #9aa6cf;
+  --color-button-bg: #2a3454;
+  --color-button-text: #eaf2ff;
+
+  /* binary tile text colors (paired with the value ramp) */
+  --tile-text-dark: #0c1430;
+  --tile-text-light: #eaf2ff;
 
   /* spec §8.3 timings */
   --dur-slide: 180ms;
@@ -123,7 +132,7 @@ html, body {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #eee4da;
+  color: #9aa6cf;
 }
 
 .score-box__value {
@@ -148,7 +157,7 @@ html, body {
 
 .btn:hover,
 .btn:focus-visible {
-  background: #7c6a59;
+  background: #38436b;
   outline: none;
 }
 
@@ -168,7 +177,7 @@ html, body {
 }
 
 .board-frame:focus-visible {
-  box-shadow: 0 0 0 3px #8f7a66;
+  box-shadow: 0 0 0 3px #4f90f8;
 }
 
 .board-grid {
@@ -197,6 +206,8 @@ html, body {
   font-size: 36px;
   line-height: 1;
   border-radius: 4px;
+  /* keep the dark high-value tiles delineated from the dark board */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   /* slide animation per §8.3 — translate only; the JS sets the translate. */
   transition: transform var(--dur-slide) ease-out;
   will-change: transform;
@@ -207,18 +218,30 @@ html, body {
 .tile--digits-4 { font-size: 26px; }
 .tile--digits-5 { font-size: 20px; }
 
-.tile--v-2     { background: #eee4da; color: #776e65; }
-.tile--v-4     { background: #ede0c8; color: #776e65; }
-.tile--v-8     { background: #f2b179; color: #f9f6f2; }
-.tile--v-16    { background: #f59563; color: #f9f6f2; }
-.tile--v-32    { background: #f67c5f; color: #f9f6f2; }
-.tile--v-64    { background: #f65e3b; color: #f9f6f2; }
-.tile--v-128   { background: #edcf72; color: #f9f6f2; }
-.tile--v-256   { background: #edcc61; color: #f9f6f2; }
-.tile--v-512   { background: #edc850; color: #f9f6f2; }
-.tile--v-1024  { background: #edc53f; color: #f9f6f2; }
-.tile--v-2048  { background: #edc22e; color: #f9f6f2; }
-.tile--v-super { background: #3c3a32; color: #f9f6f2; }
+.tile--v-2     { background: #eacdfa; color: var(--tile-text-dark); }
+.tile--v-4     { background: #cbc2fb; color: var(--tile-text-dark); }
+.tile--v-8     { background: #c0d3fc; color: var(--tile-text-dark); }
+.tile--v-16    { background: #a6ebfb; color: var(--tile-text-dark); }
+.tile--v-32    { background: #b9fcfc; color: var(--tile-text-dark); }
+.tile--v-64    { background: #7efae1; color: var(--tile-text-dark); }
+.tile--v-128   { background: #76e8fc; color: var(--tile-text-dark); }
+.tile--v-256   { background: #4f90f8; color: var(--tile-text-light); }
+.tile--v-512   { background: #312bf6; color: var(--tile-text-light); }
+.tile--v-1024  { background: #1f3d8f; color: var(--tile-text-light); }
+/* 2048 + super extend the ramp past the supplied 10 colors, with a glow
+   marking the "maxed-out" tiles. */
+.tile--v-2048  {
+  background: #251c7a;
+  color: var(--tile-text-light);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+              0 0 14px rgba(124, 92, 255, 0.55);
+}
+.tile--v-super {
+  background: #140a3d;
+  color: var(--tile-text-light);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+              0 0 18px rgba(124, 92, 255, 0.7);
+}
 
 /* spawn: scale 0→1, ≤200ms, per §8.3. The `--spawn` class is applied
    while the tile's id is in :ui.animation.spawns; a setTimeout removes
@@ -251,7 +274,8 @@ html, body {
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(238, 228, 218, 0.73);
+  background: rgba(10, 14, 24, 0.78);
+  color: var(--tile-text-light);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -263,7 +287,7 @@ html, body {
 }
 
 .overlay--won {
-  background: rgba(237, 194, 46, 0.5);
+  background: rgba(124, 92, 255, 0.45);
   color: #f9f6f2;
 }
 
@@ -275,7 +299,7 @@ html, body {
 }
 
 .overlay--won .overlay__title { color: #f9f6f2; }
-.overlay--over .overlay__title { color: #776e65; }
+.overlay--over .overlay__title { color: #d6deff; }
 
 .overlay__actions {
   display: flex;
