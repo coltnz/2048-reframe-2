@@ -125,6 +125,20 @@
     [:phase   AnimationPhase]
     [:tile-id TileId]]])
 
+(def Event-UIToggleInstructions
+  "`:ui/toggle-instructions` carries no payload — flips the footer
+   instruction-visibility flag. A pure UI affordance (§8.1), persisted
+   via localStorage (§7.1); not in the spec §4.4 event table."
+  [:cat [:= :ui/toggle-instructions] [:? [:map {:closed true}]]])
+
+(def Event-UIInstructionsLoaded
+  "`:ui/instructions-loaded hidden?-or-nil` — positional payload
+   dispatched by the generic `:fx/storage-read` on boot. nil means
+   \"no persisted preference\" and defaults to shown. Positional (not
+   map-shaped) for the same reason as `:storage/loaded` (§7.1): a
+   single primitive needs no key."
+  [:cat [:= :ui/instructions-loaded] [:maybe :boolean]])
+
 ;; -- Effect payloads (§4.5 / §5.2 'Effect payloads') -------------------------
 
 (def Fx-StorageWrite
@@ -167,6 +181,9 @@
 (def Sub-Phase    Phase)
 (def Sub-LegalMoves [:set Direction])
 (def Sub-AnimationBusy :boolean)
+(def Sub-InstructionsHidden
+  "True when the player has hidden the footer instructions (§8.1)."
+  :boolean)
 
 ;; -- Animation queue entries (§5.1) -----------------------------------------
 
@@ -198,8 +215,12 @@
    [:rng-seed    :int]])
 
 (def AppDb-UI
+  ;; `:instructions-hidden?` is an impl-level UI affordance (footer
+  ;; instructions toggle, §8.1) beyond the §5.1 verbatim shape; it is
+  ;; persisted to localStorage (§7.1) so it survives reloads.
   [:map {:closed true}
-   [:overlay   [:set [:enum :won :over]]]
+   [:overlay              [:set [:enum :won :over]]]
+   [:instructions-hidden? :boolean]
    [:animation [:map {:closed true}
                 [:slides  [:vector Anim-Slide]]
                 [:merges  [:vector Anim-Merge]]
@@ -236,6 +257,12 @@
    JSON.stringify ⇒ a number literal). Key
    `reframe-2048-2/best-score-v1`."
   :int)
+
+(def StorageBlob-InstructionsHidden
+  "The persisted footer-instructions preference: a bare boolean
+   (JSON.stringify ⇒ `true`/`false`). Key
+   `reframe-2048-2/instructions-hidden-v1`."
+  :boolean)
 
 ;; -- Registration helpers ----------------------------------------------------
 ;;

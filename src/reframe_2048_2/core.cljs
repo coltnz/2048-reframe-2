@@ -98,6 +98,13 @@
      :fx [[:fx/storage-read
            {:key        best-score-storage-key
             :on-success :storage/loaded}]
+          ;; Restore the footer-instructions "serenity" preference
+          ;; (§7.1 / §8.1) before the first render — landing before
+          ;; `:game/new` (which preserves it) the same way the
+          ;; best-score read does.
+          [:fx/storage-read
+           {:key        db/instructions-hidden-storage-key
+            :on-success :ui/instructions-loaded}]
           [:dispatch [:game/new]]]}))
 
 (defn- mount-live! []
