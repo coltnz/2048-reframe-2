@@ -4,10 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>2048</title>
+
+  <!-- Installable PWA. Paths are RELATIVE because GitHub Pages serves this
+       from the /2048-reframe-2/ project subpath; absolute /… paths would
+       resolve against the user root and 404. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1f3d8f">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="2048">
+
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="app"></div>
   <script src="js/main.js"></script>
+  <!-- Register the service worker (GitHub Pages is always HTTPS, a secure
+       context). The relative path scopes the SW to /2048-reframe-2/. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
+          console.warn('SW registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
