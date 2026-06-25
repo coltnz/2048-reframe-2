@@ -74,7 +74,11 @@
                       :tiles      tiles
                       :next-id    next-id
                       :rng-seed   seed})
-        (assoc :ui   {:overlay   #{}
+        ;; `:instructions-hidden?` is a UI preference, not game state —
+        ;; preserve it across a new game the same way `:best-score` is
+        ;; preserved (§7.1 / §8.1), rather than resetting to shown.
+        (assoc :ui   {:overlay              #{}
+                      :instructions-hidden? (get-in db [:ui :instructions-hidden?] false)
                       :animation {:slides  []
                                   :merges  []
                                   :spawns  (vec spawn-queue)}})
@@ -87,6 +91,13 @@
   [best-score]
   [:fx/storage-write {:key   "reframe-2048-2/best-score-v1"
                       :value best-score}])
+
+(defn- save-instructions-hidden-fx
+  "Compose `:fx/storage-write` for the footer-instructions preference
+   (§7.1 / §8.1)."
+  [hidden?]
+  [:fx/storage-write {:key   db/instructions-hidden-storage-key
+                      :value hidden?}])
 
 ;; -- :game/new ---------------------------------------------------------------
 ;;
@@ -325,6 +336,31 @@
    :spec s/Event-StorageSave}
   (fn handler-storage-save [{:keys [db]} _event]
     {:fx [(save-best-score-fx (get-in db [:game :best-score]))]}))
+
+;; -- :ui/toggle-instructions -------------------------------------------------
+;;
+;; UI affordance (§8.1): flip the footer-instructions visibility and
+;; persist the new value so the player's "serene" preference survives
+;; reloads (§7.1). Not part of the spec §4.4 event table.
+
+(rf/reg-event-fx :ui/toggle-instructions
+  {:doc  "Flip `:ui.instructions-hidden?` and persist it (§7.1 / §8.1)."
+   :spec s/Event-UIToggleInstructions}
+  (fn handler-toggle-instructions [{:keys [db]} _event]
+    (let [hidden? (not (get-in db [:ui :instructions-hidden?]))]
+      {:db (assoc-in db [:ui :instructions-hidden?] hidden?)
+       :fx [(save-instructions-hidden-fx hidden?)]})))
+
+;; -- :ui/instructions-loaded -------------------------------------------------
+
+(rf/reg-event-db :ui/instructions-loaded
+  {:doc  "Set `:ui.instructions-hidden?` from the persisted value
+          (§7.1 / §8.1). A nil payload (no prior preference, parse
+          failure, missing key) defaults to shown (false), mirroring
+          `:storage/loaded`'s nil → 0 default."
+   :spec s/Event-UIInstructionsLoaded}
+  (fn handler-instructions-loaded [db [_ hidden?]]
+    (assoc-in db [:ui :instructions-hidden?] (boolean hidden?))))
 
 ;; -- :ui/animation-finished --------------------------------------------------
 ;;

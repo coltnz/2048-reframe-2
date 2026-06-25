@@ -51,6 +51,13 @@
          over banners conditionally without re-reading app-db."}
   (fn [db _] (get-in db [:ui :overlay])))
 
+(rf/reg-sub :sub/instructions-hidden?
+  {:doc  "True when the footer instructions are hidden (§8.1 UI
+          affordance, persisted §7.1). Not in §4.6's named-sub list —
+          a view-only helper so the footer stays off raw app-db."
+   :spec s/Sub-InstructionsHidden}
+  (fn [db _] (get-in db [:ui :instructions-hidden?])))
+
 ;; -- Derived subs ------------------------------------------------------------
 
 (rf/reg-sub :sub/board

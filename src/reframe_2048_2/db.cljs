@@ -21,6 +21,13 @@
    hard-code `4` outside this constant per spec §3.1."
   [4 4])
 
+(def instructions-hidden-storage-key
+  "localStorage key for the footer-instructions visibility preference
+   (§7.1 / §8.1). Read on boot by `:app/initialise`, written on every
+   `:ui/toggle-instructions`. Defined here (not core.cljs) so both the
+   boot reader and the toggle writer share one literal."
+  "reframe-2048-2/instructions-hidden-v1")
+
 ;; -- Initial db --------------------------------------------------------------
 ;;
 ;; The `:rng-seed` here is the *boot* seed; the first `:game/new` event
@@ -44,7 +51,11 @@
 
    `:phase :fresh` is the boot state only; the FSM advances to
    `:playing` on the first `:game/new` per spec §4.8 (D-05 single-step
-   audit fix)."
+   audit fix).
+
+   `:ui.instructions-hidden?` is an impl UI affordance beyond the §5.1
+   verbatim shape (footer toggle, §8.1); it defaults to shown (false)
+   and is overwritten on boot from localStorage (§7.1)."
   {:game  {:board-dims board-dims
            :phase      :fresh
            :score      0
@@ -52,7 +63,8 @@
            :tiles      {}
            :next-id    1
            :rng-seed   1}
-   :ui    {:overlay   #{}
+   :ui    {:overlay              #{}
+           :instructions-hidden? false
            :animation {:slides  []
                        :merges  []
                        :spawns  []}}

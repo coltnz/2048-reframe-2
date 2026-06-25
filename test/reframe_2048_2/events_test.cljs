@@ -298,6 +298,39 @@
       (is (= :fx/storage-write (ffirst fx)))
       (is (= 999 (:value (second (first fx))))))))
 
+;; -- :ui/toggle-instructions / :ui/instructions-loaded -----------------------
+
+(deftest toggle-instructions-flips-and-persists
+  (testing ":ui/toggle-instructions flips the flag and fires :fx/storage-write (§7.1 / §8.1)"
+    (let [h (handler :ui/toggle-instructions)
+          ;; default-db starts shown (false) → toggling hides (true).
+          {:keys [db fx]} (h {:db db/default-db} [:ui/toggle-instructions])]
+      (is (true? (get-in db [:ui :instructions-hidden?]))
+          "Shown → hidden.")
+      (is (= :fx/storage-write (ffirst fx)))
+      (is (= true (:value (second (first fx))))
+          "Persists the new (hidden) value.")
+      ;; Toggling again restores shown and persists false.
+      (let [{db2 :db fx2 :fx} (h {:db db} [:ui/toggle-instructions])]
+        (is (false? (get-in db2 [:ui :instructions-hidden?])) "Hidden → shown.")
+        (is (= false (:value (second (first fx2)))))))))
+
+(deftest instructions-loaded-coerces-payload
+  (testing ":ui/instructions-loaded sets the flag from the persisted boolean, nil → false (§7.1)"
+    (let [h (handler :ui/instructions-loaded)]
+      (is (true?  (get-in (h db/default-db [:ui/instructions-loaded true])  [:ui :instructions-hidden?])))
+      (is (false? (get-in (h db/default-db [:ui/instructions-loaded false]) [:ui :instructions-hidden?])))
+      (is (false? (get-in (h db/default-db [:ui/instructions-loaded nil])   [:ui :instructions-hidden?]))
+          "No prior preference defaults to shown."))))
+
+(deftest game-new-preserves-instructions-preference
+  (testing ":game/new preserves :instructions-hidden? like :best-score (§7.1 / §8.1)"
+    (let [h (handler :game/new)
+          start (assoc-in db/default-db [:ui :instructions-hidden?] true)
+          {:keys [db]} (h {:db start} [:game/new])]
+      (is (true? (get-in db [:ui :instructions-hidden?]))
+          "A new game does not un-hide the instructions."))))
+
 ;; -- :ui/animation-finished --------------------------------------------------
 
 (deftest animation-finished-removes-slide
